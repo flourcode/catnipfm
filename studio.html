@@ -143,18 +143,18 @@
 
 <script>
 (function(){
-  const STATIONS=[['late','Late Shift','88.3'],['window','Rainy Window','91.7'],['last','Last Call','92.9'],['crt','Rooftop','94.1'],['escape','Fire Escape','97.5'],['nine','Nine Lives','102.9'],
+  const STATIONS=[['nine','Nine Lives','87.9'],['late','Late Shift','88.3'],['crt','Rooftop','94.1'],
     ['purr','Purr','89.9'],['rain','Rain','90.5'],['ocean','Ocean','93.3'],['fire','Fireplace','99.1'],['brown','Brown noise','100.7']];
   const ZONES=[['America/Los_Angeles','Pacific (PT)'],['America/Denver','Mountain (MT)'],['America/Chicago','Central (CT)'],['America/New_York','Eastern (ET)'],
     ['Europe/London','London'],['Europe/Berlin','Central Europe'],['Asia/Tokyo','Tokyo'],['Australia/Sydney','Sydney'],['UTC','UTC'],['custom','Other…']];
   const KEY='loafFMStudio';
   const $=id=>document.getElementById(id),f=$('f');
   const st=$('station'),og1=document.createElement('optgroup'),og2=document.createElement('optgroup');og1.label='Catnip FM';og2.label='Calm';
-  STATIONS.forEach(([k,n,fq],i)=>{const o=new Option(n+'  ·  '+fq,k);(i<6?og1:og2).appendChild(o);
-    const l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox" name="rot_'+k+'"'+(i<6?' checked':'')+'> '+n;$('rotList').appendChild(l);});
+  STATIONS.forEach(([k,n,fq],i)=>{const o=new Option(n+'  ·  '+fq,k);(i<3?og1:og2).appendChild(o);
+    const l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox" name="rot_'+k+'"'+(i<3?' checked':'')+'> '+n;$('rotList').appendChild(l);});
   st.append(og1,og2);
   ZONES.forEach(([v,n])=>$('tz').appendChild(new Option(n,v)));
-  const DEF={tape:'',mode:'video',station:'late',rotateOn:false,rotate:60,palette:'pegs',coat:'grey',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,case:'dark',treats:true,dim:true,base:new URL('./',location.href).href,rot:['late','window','last','crt','escape','nine']};
+  const DEF={tape:'',mode:'video',station:'nine',rotateOn:false,rotate:60,palette:'pegs',coat:'grey',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,case:'dark',treats:true,dim:true,base:new URL('./',location.href).href,rot:['nine','late','crt']};
   let cfg=Object.assign({},DEF);try{Object.assign(cfg,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){}
 
   function toForm(){f.mode.value=cfg.mode;st.value=cfg.station;$('rotateOn').checked=cfg.rotateOn;$('rotate').value=cfg.rotate;$('palette').value=cfg.palette;$('coat').value=cfg.coat||'grey';

@@ -331,7 +331,3 @@ html.broadcast .mixtape{display:none!important}
 .coatbtn canvas{width:28px;height:18px;display:block;image-rendering:pixelated}
 html.broadcast .coatbtn{display:none}
 @media (max-width:700px){.coatbtn{height:40px}}
-/* six starting grooves: two rows of three step keys */
-.mt-keys.mt-presets{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:row}
-.mixtape.building .mt-presets .hw:nth-child(4){background:var(--run-o)}.mixtape.building .mt-presets .hw:nth-child(5){background:var(--run-y)}.mixtape.building .mt-presets .hw:nth-child(6){background:var(--run-w)}
-.mixtape.building .mt-presets .hw:nth-child(2){background:var(--run-o)}.mixtape.building .mt-presets .hw:nth-child(3){background:var(--run-y)}.mixtape.building .mt-presets .hw:nth-child(1){background:var(--run-r)}

@@ -1,6 +1,6 @@
 # Catnip FM · catnipfm.com
 
-Catnip FM is a little rooftop radio that stays up late. Loafie hangs out above the city while lo-fi, trip-hop, house, synthwave and 8-bit are generated live in your browser. Tune around, pet the cat, or stack a few parts and save them to a mixtape.
+Catnip FM is a little rooftop radio that stays up late. Loafie hangs out above the city while lo-fi, house, ambient and 8-bit are generated live in your browser. Tune around, pet the cat, or stack a few parts and save them to a mixtape.
 
 Pet Cats and Chill.
 
@@ -96,9 +96,9 @@ Loafie stands on a plain grey concrete ledge: three rows under her feet (`0x7c7c
 
 Keep behaviours, remove controls. On a computer the row is PLAY/STOP, the dial, volume, DISPLAY, the fish (orange, a goldfish), Z and FLOAT; on a phone it's PLAY/STOP and the dial, then DISPLAY, the fish and Z (no volume: phones have buttons; no Float). DISPLAY steps to the next palette.
 
-**The tuner** is an 80s digital receiver: a dark glass readout with the band and position in orange (`FOCUS · 2/5`), the frequency big and the name in glowing cyan, ◀ ▶ hardware keys either side, and three band keys under it that are also the three ways to use Catnip FM: **FOCUS** (the five music stations), **CALM** (purr, rain, ocean, fire, brown noise) and **TAPES** (your mixtapes, with a count on the key so they're never hidden; with none it shows + and opens the deck). Tapping a band tunes to where you last were in it; tapping the lit band steps to the next. The real `<select id="station">` is still there, visually hidden, for keyboard and screen-reader users and the tests (`bandOf()`, `bandList()`, `paintDial()`, `dialTune()`, `dialStep()`).
+**The tuner** is an 80s digital receiver: a dark glass readout with the band and position in orange (`FOCUS · 2/3`), the frequency big and the name in glowing cyan, ◀ ▶ hardware keys either side, and three band keys under it that are also the three ways to use Catnip FM: **FOCUS** (the five music stations), **CALM** (purr, rain, ocean, fire, brown noise) and **TAPES** (your mixtapes, with a count on the key so they're never hidden; with none it shows + and opens the deck). Tapping a band tunes to where you last were in it; tapping the lit band steps to the next. The real `<select id="station">` is still there, visually hidden, for keyboard and screen-reader users and the tests (`bandOf()`, `bandList()`, `paintDial()`, `dialTune()`, `dialStep()`).
 
-**The city.** Behind the whole board (clock and rooftop as one 128 × 50 field) is one place: a city at night in two depths, a far skyline and nearer buildings at either end, with a tall tower whose red light blinks, drawn in the palette's colour (putty-grey on 808) and kept dim so the clock, track and meter stay readable (`CITY`, `drawCity()`). Windows come on and go off slowly; more are lit after dark. Loafie's ledge is a plain grey concrete sill in front of it (three rows, lit along the top edge, the same in every palette; the old rainbow desk line and the keyboard are gone), her box stays put, and she gets a one-dot dark outline so she never melts into the buildings. **Rain is the only weather** (`raining()`): it falls over all of it on Rain, Rainy Window, any tape with rain, and about one day in six with nothing playing. The old skies (stars and meteors, CRT code, leaves, petals, snow, fireflies), the calm scenes and the outside tints are gone. CALM shows the sound's name and the city, no meter.
+**The city.** Behind the whole board (clock and rooftop as one 128 × 50 field) is one place: a city at night in two depths, a far skyline and nearer buildings at either end, with a tall tower whose red light blinks, drawn in the palette's colour (putty-grey on 808) and kept dim so the clock, track and meter stay readable (`CITY`, `drawCity()`). Windows come on and go off slowly; more are lit after dark. Loafie's ledge is a plain grey concrete sill in front of it (three rows, lit along the top edge, the same in every palette; the old rainbow desk line and the keyboard are gone), her box stays put, and she gets a one-dot dark outline so she never melts into the buildings. **Rain is the only weather** (`raining()`): it falls over all of it on Rain, any tape with rain, and about one day in six with nothing playing. The old skies (stars and meteors, CRT code, leaves, petals, snow, fireflies), the calm scenes and the outside tints are gone. CALM shows the sound's name and the city, no meter.
 
 There is no performance control (a DROP key was tried and cut: it didn't earn its place).
 
@@ -126,18 +126,17 @@ Besides walking, sitting and sleeping she has a few idle moments, picked at rand
 
 ## Catnip FM's own stations
 
-Six FOCUS stations, laid out like one night on the roof, slow to busy. Every one has a steady beat and its own recognisable flavour; the slow, beatless stuff lives in CALM.
+The cassette sound (tape hiss and wobble) is kept quiet: Late Shift's hiss is `.0032 × hiss` with a 4-cent wow, and the lo-fi tape recording (`RECORDING[1]`) has half the hiss of earlier builds.
+
+Three FOCUS stations, each with a steady beat and its own flavour; the slow, beatless stuff lives in CALM. (Rainy Window, Last Call (trip-hop) and Fire Escape (synthwave) were tried and cut: too hard for the vibe. Their trip-hop and synthwave drums are still in `band()` as drum kinds 4 and 5, unused.)
 
 | Station | Freq | Sound | How it's made |
 |---|---|---|---|
+| Nine Lives | 87.9 | Mellow 8-bit with a Friday-night video-show sheen: chip drums with a real clap on two and four, triangle bass, pulse arps and lead, a soft chorused pad underneath (C major). First on the dial and the default for new visitors | tape recipe, seed 18, plus `STATION_OPTS` `sheen` |
 | Late Shift | 88.3 | Lo-fi hip-hop: Rhodes, dusty boom-bap, lazy swing | `music()` with its `STYLES` entry |
-| Rainy Window | 91.7 | Lo-fi beat, warm bass, fingerpicked guitar, rain | tape recipe, seed 10 |
-| Last Call | 92.9 | Trip-hop: a heavy dusty break with record crackle, deep sub bass, Rhodes (D minor) | tape recipe, seed 23 |
 | Rooftop | 94.1 | House: synth bass, pad (the "8butt" tape) | tape recipe, seed 1 (id `gen:crt`) |
-| Fire Escape | 97.5 | Synthwave: kick on one and three, gated snare, tom fills, driving eighth-note synth bass, pad, saw arp and a saw lead (A minor) | tape recipe, seed 15 |
-| Nine Lives | 102.9 | Mellow 8-bit: chip drums, triangle bass, pulse arps (C major) | tape recipe, seed 18 |
 
-Everything but Late Shift is a tape recipe played by `band()` (`STATION_RECIPE` in board.js: groove, parts and seed), so the stations and the mixer share one engine, and MAKE A MIXTAPE from a station starts with exactly its parts and a fresh tune. Late Shift still runs on the older `music()` conductor. Every sound is synthesised in the browser, so there are no samples and nothing to license. To add a station, add a recipe to `STATION_RECIPE`, an entry to `MUSIC`, `FREQ`/`FREQ_FIXED`, `STATION_TAPE`, `GEN_LEVEL` and `ST_KEYS`. Levels are matched by rendering each station offline and comparing RMS to Rooftop (`scratchpad/loud.js` during development).
+Nine Lives and Rooftop are tape recipes played by `band()` (`STATION_RECIPE` in board.js: groove, parts and seed), so the stations and the mixer share one engine, and MAKE A MIXTAPE from a station starts with exactly its parts and a fresh tune. Late Shift still runs on the older `music()` conductor. Every sound is synthesised in the browser, so there are no samples and nothing to license. Station-only extras that tapes can't have go in `STATION_OPTS` (passed to `band()` as `opt`). To add a station, add a recipe to `STATION_RECIPE`, an entry to `MUSIC`, `FREQ`/`FREQ_FIXED`, `STATION_TAPE`, `GEN_LEVEL` and `ST_KEYS`. Levels are matched by rendering each station offline and comparing RMS to Rooftop (`scratchpad/loud.js` during development).
 
 ## Analytics
 
@@ -159,9 +158,9 @@ Add `?broadcast=video` or `?broadcast=live` to the address and the page becomes 
 - **Uploaded videos** (`broadcast=video`): no clock or date, which would be wrong by the time anyone watches. The big digits show the station's frequency, with STEREO underneath.
 - **Livestream** (`broadcast=live`): the frequency up top and the real time on the small line, in one time zone (Pacific by default, labelled PT). The rooftop weather and the evening dimming follow that zone too.
 
-Frequencies: Late Shift 88.3, Rainy Window 91.7, Last Call 92.9, Rooftop 94.1, Fire Escape 97.5, Nine Lives 102.9, and for the calm sounds Purr 89.9, Rain 90.5, Ocean 93.3, Fireplace 99.1, Brown noise 100.7 (`FREQ` in board.js). They're fictional; never pair them with call letters.
+Frequencies: Nine Lives 87.9, Late Shift 88.3, Rooftop 94.1, and for the calm sounds Purr 89.9, Rain 90.5, Ocean 93.3, Fireplace 99.1, Brown noise 100.7 (`FREQ` in board.js). They're fictional; never pair them with call letters.
 
-Options: `station=late|window|last|crt|escape|nine|purr|rain|ocean|fire|brown`, `palette=pegs|teal|red|amber|crt|moon|ember`, `tz=America/Los_Angeles` (any IANA zone) with `label=PT` to override the label, `rotate=60&stations=late,window,escape` to change station every 60 minutes with a short fade, `vol=0.8`, `case=light` for the light case, `treats=0`, `dim=0` to turn off evening dimming.
+Options: `station=nine|late|crt|purr|rain|ocean|fire|brown`, `palette=pegs|teal|red|amber|crt|moon|ember`, `tz=America/Los_Angeles` (any IANA zone) with `label=PT` to override the label, `rotate=60&stations=nine,late,crt` to change station every 60 minutes with a short fade, `vol=0.8`, `case=light` for the light case, `treats=0`, `dim=0` to turn off evening dimming.
 
 Examples:
 - `https://catnipfm.com/?broadcast=video&station=window&palette=teal`
@@ -178,7 +177,7 @@ Deliberately none (no Space, M or Z): people type in other windows, especially a
 
 ## The sky
 
-While something plays, the sky goes with it (`STATION_SKY`): rain for Rainy Window and Rain; stars and a meteor every 11 s or so (three times in four) for the other FOCUS stations, Ocean and Fireplace; plain for Purr and brown noise. A tape follows its weather (rain, stars for ocean and fire, plain for purr) or, with no weather, its band. When nothing plays, the sky follows the season, the day and the moon. `?sky=stars|matrix|leaves|rain|snow|petals|fireflies|plain` forces one for testing.
+While something plays, the sky goes with it (`STATION_SKY`): rain for Rain; stars and a meteor every 11 s or so (three times in four) for the other FOCUS stations, Ocean and Fireplace; plain for Purr and brown noise. A tape follows its weather (rain, stars for ocean and fire, plain for purr) or, with no weather, its band. When nothing plays, the sky follows the season, the day and the moon. `?sky=stars|matrix|leaves|rain|snow|petals|fireflies|plain` forces one for testing.
 
 ## The pages
 
@@ -200,7 +199,7 @@ The starting recipes (`BASES`) are a little incomplete on purpose, so the first 
 
 Late Shift's own little motif (the stations use `music()`, not the tape engine) now changes one note now and then and moves on to a new motif more often, so it doesn't sit on the same five notes.
 
-**The deck is a home cassette deck.** While you build, the deck turns into a warm walnut-brown panel (`.mixtape.building`): cream printed labels, dark channel keys that light orange-red, the six START WITH pads in two rows of 808 step-key colours (Lo-fi, Trip-hop, House / Synthwave, Ambient, 8-bit; `BASE_ORDER`; a tape's `s` keeps its original index, so 4 is Trip-hop and 5 Synthwave), and under the cassette an **ON THIS TAPE** display. That's a 5 × 16 grid, KICK · SNARE · HATS · BASS · KEYS, showing the current bar's hits (red kicks, orange snares, yellow hats, white bass and keys), a running light stepping through the sixteenths in the same four colours, and a readout: `120 BPM · BAR 3` (PAUSED when stopped). The model line reads CATNIP FM · HOME CASSETTE DECK · AUTO REVERSE. Nothing here is programmable: it's the machine showing you what it's playing. The engine logs every drum, bass and key hit it schedules (`hits` and `keyHits`, read by `seqFrame()` on animation frames, keyed to the audio clock and the engine's `tStart`/`barDur`), so the grid is exact, including swing and fills, and the lit cell on the running step is the hit sounding now.
+**The deck is a home cassette deck.** While you build, the deck turns into a warm walnut-brown panel (`.mixtape.building`): cream printed labels, dark channel keys that light orange-red, the four START WITH pads in the 808 step-key colours (red, orange, yellow, white), and under the cassette an **ON THIS TAPE** display. That's a 5 × 16 grid, KICK · SNARE · HATS · BASS · KEYS, showing the current bar's hits (red kicks, orange snares, yellow hats, white bass and keys), a running light stepping through the sixteenths in the same four colours, and a readout: `120 BPM · BAR 3` (PAUSED when stopped). The model line reads CATNIP FM · HOME CASSETTE DECK · AUTO REVERSE. Nothing here is programmable: it's the machine showing you what it's playing. The engine logs every drum, bass and key hit it schedules (`hits` and `keyHits`, read by `seqFrame()` on animation frames, keyed to the audio clock and the engine's `tStart`/`barDur`), so the grid is exact, including swing and fills, and the lit cell on the running step is the hit sounding now.
 
 **SAVE TAPE is the payoff**: the tape names itself (`autoName()`: "Rainy Friday", "Deep Tuesday Night", "Pixel Sunday"), keeps the shell you've been looking at (picked at random when the tape was started), and pops out big, reels turning, with its frequency. Then **SHARE** (copies the tape's link, and shows it in a box under the button so you can see and select it; no share sheet), **KEEP PLAYING**, **RENAME** (never changes the music) and **REMIX**, with *Save as picture* and *Delete tape* (asks once) as small text. Tap the cassette for another shell. A tape opened from someone's link shows **PLAY** and **KEEP THIS TAPE**.
 
@@ -208,9 +207,9 @@ Late Shift's own little motif (the stations use `music()`, not the tape engine) 
 
 Every key press re-cuts the tape with a quick crossfade. **The name is only the name**: each tape gets a random music seed when it's created (`r`, carried in the link) that picks the key, the mood, the chords and the hook. Tapes from before the seed keep using their name as the seed, and keep their tune.
 
-`band()` plays it (and five of the six stations):
+`band()` plays it (and two of the three stations):
 
-- **Feel.** The drums set the feel: soft (gentle kick, rim click, brushes, shaker) and lo-fi (boom-bap through a cassette) share the lo-fi feel; house is four on the floor with offbeat hats and a gentle pump on the other parts; trip-hop is a slow heavy break (big roomy snare, record crackle) on the lo-fi cassette; synthwave is straight, kick on one and three, a gated snare and tom fills, with driving eighth-note bass and, with Pad keys, a saw arp and a saw lead playing the hook. With no drums the parts play freely. The 8-bit start puts the drums through a chip kit and pushes the tempo up a little (on old tapes, 8-bit keys did). Tempo comes from the drums and the starting track's pace (`TEMPO`, `SWING`).
+- **Feel.** The drums set the feel: soft (gentle kick, rim click, brushes, shaker) and lo-fi (boom-bap through a cassette) share the lo-fi feel; house is four on the floor with offbeat hats and a gentle pump on the other parts. With no drums the parts play freely. The 8-bit start puts the drums through a chip kit and pushes the tempo up a little (on old tapes, 8-bit keys did). Tempo comes from the drums and the starting track's pace (`TEMPO`, `SWING`).
 - **Bass** follows the chords (the boom-bap line, or offbeats with octave jumps over house). Warm is round, Deep is a sub, Synth is a plucky saw-and-square (a triangle on the 8-bit start).
 - **Keys** comp in the feel: Rhodes chords and re-hits; nylon Guitar (Karplus-Strong) fingerpicks, or chops offbeats over house; Pad swells under glassy notes (with no drums at Slow or Easy it becomes ambient: long pads, a drone, a big room); 8-bit arpeggiates on a pulse wave. Keys off means no tune, just the groove.
 - **The seed is the tune.** It picks the key, one of three moods (`HARMONY`), two chord progressions (the A and B halves of each 32 bars) and a two-bar hook (`makeHook()`), the tape's signature. The B half has a hook of its own, and every 64 bars a new B hook comes in (from `seed + ':b' + n`, a separate random stream, so older tapes keep their tunes), so a tape left playing for an hour keeps moving while still sounding like itself. The hook doesn't repeat verbatim either: in each run of four it plays as written, then with a new last note, then rests while the keys improvise, then a step higher. Notes aren't pentatonic: the moods are diatonic scales with 7th and 9th chords, and every melody note is pulled onto the chord underneath it (`fit()`), which is why any combination sounds right.

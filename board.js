@@ -40,7 +40,7 @@ function wrap(s,area,font='big'){const words=s.split(' ');const lines=[];let cur
 const locale=navigator.language||'en-US';
 const H24=(()=>{try{return !new Intl.DateTimeFormat(locale,{hour:'numeric'}).resolvedOptions().hour12;}catch(e){return false;}})();
 const UNIT=/US|LR|MM/.test(locale.split('-')[1]||'')?'F':'C';
-const DEFAULTS={palette:'pegs',volume:0.7,station:'gen:late',stationName:'Late Shift',tapes:[]};
+const DEFAULTS={palette:'pegs',volume:0.7,station:'gen:nine',stationName:'Nine Lives',tapes:[]};
 let S=Object.assign({},DEFAULTS);
 let FIRST=true;try{const saved=JSON.parse(localStorage.getItem(STORE)||'null');if(saved&&typeof saved==='object'){Object.assign(S,saved);FIRST=false;}}catch(e){}
 if('brightness' in S||'sitStart' in S||'mtSeen' in S){delete S.brightness;delete S.sitStart;delete S.mtSeen;try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}} /* manual dim, the 20-minute sit and the first-visit teaser are gone: nobody stays dim or stuck asleep */
@@ -89,8 +89,8 @@ const SHELLS=[
 const TAPE_MAX=50;
 const DAYNAME=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 /* the tracks you start with: a little restrained on purpose, so the first layer you add pays off. [name, layers, what to suggest first] */
-const BASES=[['Lo-fi',{d:1,b:0,k:1,w:0,p:1},{b:1,w:1}],['House',{d:3,b:0,k:3,w:0,p:1},{b:2,w:0}],['Ambient',{d:0,b:1,k:3,w:0,p:0},{w:2,d:1}],['8-bit',{d:2,b:0,k:4,w:0,p:2},{b:3}],['Trip-hop',{d:4,b:0,k:1,w:0,p:1},{b:2}],['Synthwave',{d:5,b:0,k:3,w:0,p:1},{b:3}]];
-const BASE_ORDER=[0,4,1,5,2,3]; /* how the START WITH pads are laid out: Lo-fi, Trip-hop, House / Synthwave, Ambient, 8-bit */
+const BASES=[['Lo-fi',{d:1,b:0,k:1,w:0,p:1},{b:1,w:1}],['House',{d:3,b:0,k:3,w:0,p:1},{b:2,w:0}],['Ambient',{d:0,b:1,k:3,w:0,p:0},{w:2,d:1}],['8-bit',{d:2,b:0,k:4,w:0,p:2},{b:3}]];
+const BASE_ORDER=[0,1,2,3];
 const LEGACY=[{d:1,b:1,k:0,w:1,p:1},{d:1,b:1,k:1,w:0,p:1},{d:2,b:2,k:0,w:0,p:1},{d:0,b:0,k:2,w:2,p:0},{d:3,b:3,k:3,w:0,p:2}]; /* what older tapes (lo-fi, bossa, house, ambient, 8-bit) become */
 let draft=null; /* the tape being made, before it's saved */
 const clampInt=(v,lo,hi,d)=>{v=Math.round(+v);return Number.isFinite(v)?Math.max(lo,Math.min(hi,v)):d;};
@@ -101,9 +101,9 @@ function cleanTape(t){if(!t||typeof t!=='object')return null;const n=String(t.n|
       const pr=LEGACY[clampInt(v,0,4,0)];d=pr.d;b=pr.b;k=pr.k;p=clampInt(g,0,2,1);}
     else if(t.e!==4)d=[0,1,1,2][clampInt(d,0,3,1)]; /* the drums version: brushes become lo-fi */
     const d4=clampInt(d,0,3,1),k4=clampInt(k,0,3,0);d=[0,2,3,2][d4];k=k4+1;sb=k4===3?3:d4===2?1:d4===0&&k4===2?2:0;} /* the steps version: beats and keys renumbered, keys can now be off */
-  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,SHELLS.length-1,0),d:clampInt(d,0,5,1),b:clampInt(b,0,3,0),k:clampInt(k,0,4,1),w:clampInt(t.w,0,4,0),p:clampInt(p,0,2,1),f:clampInt(t.f,879,1079,0)||randFreq(),s:clampInt(sb,0,5,0),r:clampInt(t.r,1,2147483647,0),e:5,i:t.i?1:0};} /* r: the tune's seed (0 on older tapes: their name is the seed, so they keep their tune) */
+  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,SHELLS.length-1,0),d:clampInt(d,0,3,1),b:clampInt(b,0,3,0),k:clampInt(k,0,4,1),w:clampInt(t.w,0,4,0),p:clampInt(p,0,2,1),f:clampInt(t.f,879,1079,0)||randFreq(),s:clampInt(sb,0,3,0),r:clampInt(t.r,1,2147483647,0),e:5,i:t.i?1:0};} /* r: the tune's seed (0 on older tapes: their name is the seed, so they keep their tune) */
 function randFreq(){const taken=new Set(Object.values(FREQ_FIXED).map(f=>Math.round(f*10)));let f;do{f=879+2*Math.floor(Math.random()*101);}while(taken.has(f));return f;} /* a free spot on the dial, odd tenths like real FM */
-const FREQ_FIXED={late:88.3,window:91.7,last:92.9,crt:94.1,escape:97.5,nine:102.9,purr:89.9,rain:90.5,waves:93.3,fire:99.1,brown:100.7};
+const FREQ_FIXED={nine:87.9,late:88.3,crt:94.1,purr:89.9,rain:90.5,waves:93.3,fire:99.1,brown:100.7};
 S.tapes=(Array.isArray(S.tapes)?S.tapes:[]).map(cleanTape).filter(t=>t&&t.id).slice(0,TAPE_MAX);
 /* an unsaved mixtape is kept quietly too, so a refresh or a closed tab doesn't lose it */
 function keepDraft(){if(BC)return;S.draft=draft?Object.assign({},draft):null;save();}
@@ -123,18 +123,18 @@ function save(){if(BC)return;try{localStorage.setItem(STORE,JSON.stringify(S));}
 /* ================= Broadcast mode (for YouTube and streaming software) =================
    ?broadcast=video   for uploaded videos: no clock or date (they'd be wrong later); the display shows the station's frequency
    ?broadcast=live    for a 24/7 livestream: the frequency up top, the real time on the small line, in one time zone
-   Options: &station=late|window|last|crt|escape|nine|purr|rain|ocean|fire|brown   &tz=America/Los_Angeles (live)
-            &rotate=60&stations=late,window,escape (change station every N minutes)   &palette=pegs|teal|red|amber|crt|moon|ember
+   Options: &station=nine|late|crt|purr|rain|ocean|fire|brown   &tz=America/Los_Angeles (live)
+            &rotate=60&stations=nine,late,crt (change station every N minutes)   &palette=pegs|teal|red|amber|crt|moon|ember
             &vol=0.8   &case=dark|light   &treats=0 (no automatic treats)   &label=JST (time-zone label)   &dim=0 (no evening dimming)
    Full-screen 16:9 board, no page or controls, sound starts by itself (OBS allows it), she never dozes off waiting
    for a mouse that isn't coming, and every so often a treat drops on its own. */
 const BCQ=new URLSearchParams(location.search),BC=/^(video|live)$/.test(BCQ.get('broadcast')||'')?{mode:BCQ.get('broadcast')}:null;
 if(!BC&&S.draft){draft=cleanTape(S.draft);if(draft)delete draft.id;}
-const ST_KEYS={late:'gen:late',window:'gen:window',crt:'gen:crt',rooftop:'gen:crt',roof:'gen:crt',last:'gen:last',lastcall:'gen:last',escape:'gen:escape',fireescape:'gen:escape',synthwave:'gen:escape',nine:'gen:nine',ninelives:'gen:nine',purr:'gen:purr',rain:'gen:rain',ocean:'gen:waves',waves:'gen:waves',fire:'gen:fire',brown:'gen:brown'};
-const FREQ={'gen:late':'88.3','gen:window':'91.7','gen:last':'92.9','gen:crt':'94.1','gen:escape':'97.5','gen:nine':'102.9','gen:purr':'89.9','gen:rain':'90.5','gen:waves':'93.3','gen:fire':'99.1','gen:brown':'100.7'};
+const ST_KEYS={late:'gen:late',crt:'gen:crt',rooftop:'gen:crt',roof:'gen:crt',nine:'gen:nine',ninelives:'gen:nine',purr:'gen:purr',rain:'gen:rain',ocean:'gen:waves',waves:'gen:waves',fire:'gen:fire',brown:'gen:brown'};
+const FREQ={'gen:nine':'87.9','gen:late':'88.3','gen:crt':'94.1','gen:purr':'89.9','gen:rain':'90.5','gen:waves':'93.3','gen:fire':'99.1','gen:brown':'100.7'};
 if(BC){BC.tz=BCQ.get('tz')||(BC.mode==='live'?'America/Los_Angeles':'');try{if(BC.tz)new Intl.DateTimeFormat('en-US',{timeZone:BC.tz});}catch(e){BC.tz='America/Los_Angeles';}
   BC.list=(BCQ.get('stations')||'').split(',').map(k=>ST_KEYS[k.trim()]).filter(Boolean);BC.rotate=Math.max(0,+BCQ.get('rotate')||0);
-  let first=ST_KEYS[BCQ.get('station')]||BC.list[0]||'gen:late';if(BCQ.get('tape')){const tp=decodeTape(BCQ.get('tape'));if(tp){draft=tp;first='tape:draft';}}S.station=first;if(BCQ.get('palette'))S.palette=BCQ.get('palette');if(BCQ.get('coat'))S.coat=BCQ.get('coat');
+  let first=ST_KEYS[BCQ.get('station')]||BC.list[0]||'gen:nine';if(BCQ.get('tape')){const tp=decodeTape(BCQ.get('tape'));if(tp){draft=tp;first='tape:draft';}}S.station=first;if(BCQ.get('palette'))S.palette=BCQ.get('palette');if(BCQ.get('coat'))S.coat=BCQ.get('coat');
   if(BCQ.get('vol'))S.volume=Math.max(0,Math.min(1,+BCQ.get('vol')));BC.treats=BCQ.get('treats')!=='0';
   document.documentElement.classList.add('broadcast');document.documentElement.dataset.theme=BCQ.get('case')==='light'?'light':'dark';}
 /* the time in the broadcast's time zone, as a Date whose local fields read in that zone (worked out once a second) */
@@ -177,7 +177,7 @@ function makeNoise(a,sec,kind){const n=Math.round(a.sampleRate*sec),b=a.createBu
     if(kind==='brown'){const s=d[0],e=d[n-1];for(let i=0;i<n;i++)d[i]-=s+(e-s)*i/(n-1);}} /* ends meet, so the loop never clicks */
   return b;}
 let muted=false,pipMute=null,pipDots=null,pipFeed=null,pipSit=null;const vol=()=>muted?0:S.volume; /* mute is for this visit only; the volume you set is kept */
-const GEN_LEVEL={'gen:brown':.5,'gen:rain':2,'gen:purr':.64,'gen:fire':.76,'gen:waves':1.2,'gen:late':.63,'gen:window':.3,'gen:crt':.33,'gen:last':.3,'gen:escape':.32,'gen:nine':.33}; /* matched by ear-weighted level so switching sounds never jumps */
+const GEN_LEVEL={'gen:brown':.5,'gen:rain':2,'gen:purr':.64,'gen:fire':.76,'gen:waves':1.2,'gen:late':.63,'gen:crt':.33,'gen:nine':.35}; /* matched by ear-weighted level so switching sounds never jumps */
 /* ===== The calm sounds =====
    All made in the browser, none of them a loop you can learn: anything that happens (a drop, a wave, a crackle, a breath)
    is scheduled a few seconds ahead with its own random timing and size. They're meant to sit under focus or a sit,
@@ -233,7 +233,7 @@ const SOUNDS={
    bells, an arpeggiator, crickets and tape hiss. A conductor picks chords, voicings, rhythms and the odd
    melody a few seconds ahead, and moves through quiet sections (keys alone, a groove, a little tune,
    a breakdown) so it keeps changing without ever demanding attention. */
-const MUSIC=[{id:'gen:late',name:'Late Shift',url:''},{id:'gen:window',name:'Rainy Window',url:''},{id:'gen:last',name:'Last Call',url:''},{id:'gen:crt',name:'Rooftop',url:''},{id:'gen:escape',name:'Fire Escape',url:''},{id:'gen:nine',name:'Nine Lives',url:''}];
+const MUSIC=[{id:'gen:nine',name:'Nine Lives',url:''},{id:'gen:late',name:'Late Shift',url:''},{id:'gen:crt',name:'Rooftop',url:''}];
 const mtof=m=>440*Math.pow(2,(m-69)/12);
 /* the keys under Loafie: the music tells the desk which note it plays and when, and that key lights up */
 const keyHits=[];function keyHit(a,t,m){if(a!==actx)return;keyHits.push(t,m);if(keyHits.length>300)keyHits.splice(0,150);} /* every melodic note; the keys don't light any more, but the deck's pattern display reads this */
@@ -256,7 +256,7 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
   const comp=a.createDynamicsCompressor();comp.threshold.value=-26;comp.knee.value=12;comp.ratio.value=3;comp.attack.value=.03;comp.release.value=.35; /* smooths out the odd louder hit */
   const warm2=a.createBiquadFilter();warm2.type='lowpass';warm2.frequency.value=st.lp;warm2.Q.value=.6;bus.connect(sat).connect(warm).connect(warm2).connect(comp).connect(dest); /* saturate first, then filter, so Tone's darkness sticks */ /* two filters in a row, so Tone really darkens */const verb=makeVerb(a,2.8),wet=a.createGain();wet.gain.value=st.rev;const send=a.createGain();send.connect(verb).connect(wet).connect(warm); /* the room goes through the tone filter too */
   /* tape wow: a slow wobble shared by every oscillator */
-  const wow=a.createOscillator();wow.frequency.value=.27;const wowG=a.createGain();wowG.gain.value=st.wobble||7;wow.connect(wowG);wow.start();
+  const wow=a.createOscillator();wow.frequency.value=.27;const wowG=a.createGain();wowG.gain.value=st.wobble||4;wow.connect(wowG);wow.start();
   const trem=a.createOscillator();trem.frequency.value=2.3;const tremG=a.createGain();tremG.gain.value=.07; /* slow and shallow: wobble near 4 Hz is the most attention-grabbing kind */trem.connect(tremG);trem.start();
   const srcs=[wow,trem];
   const drumBus=a.createGain();drumBus.gain.value=0;drumBus.connect(bus);
@@ -289,7 +289,7 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
   const cricket=(t)=>{const f=rnd(4300,4900),n=2+Math.floor(Math.random()*3),pan=rnd(-.8,.8);for(let i=0;i<n;i++){const tt=t+i*.11,o=a.createOscillator(),am=a.createOscillator(),ag=a.createGain(),g=a.createGain();o.frequency.value=f;am.frequency.value=rnd(16,20);
     am.connect(ag.gain);ag.gain.value=0;g.gain.setValueAtTime(0,tt);g.gain.linearRampToValueAtTime(.004,tt+.025);g.gain.linearRampToValueAtTime(0,tt+.08);o.connect(ag).connect(g);out(g,pan,.6);o.start(tt);am.start(tt);o.stop(tt+.09);am.stop(tt+.09);}};
   /* bed layers: tape hiss, and for some stations rain or a purr underneath */
-  if(st.hiss){const h=a.createBufferSource();h.buffer=white;h.loop=true;const hf=a.createBiquadFilter();hfx=hf;hf.type='bandpass';hf.frequency.value=st.hissF||5000;hf.Q.value=.5;hg=a.createGain();hg.gain.value=.006*st.hiss;h.connect(hf).connect(hg).connect(dest);h.start();srcs.push(h);}
+  if(st.hiss){const h=a.createBufferSource();h.buffer=white;h.loop=true;const hf=a.createBiquadFilter();hfx=hf;hf.type='bandpass';hf.frequency.value=st.hissF||5000;hf.Q.value=.5;hg=a.createGain();hg.gain.value=.0032*st.hiss;h.connect(hf).connect(hg).connect(dest);h.start();srcs.push(h);}
   const layers=[];const layerBus=g=>{const lg=a.createGain();lg.gain.value=g;lg.connect(dest);return lg;};
   if(st.rain){const r=SOUNDS['gen:rain'](a,layerBus(st.rain));srcs.push(...r.src);layers.push(r);}
   if(st.purr){const p=SOUNDS['gen:purr'](a,layerBus(st.purr));srcs.push(...p.src);layers.push(p);}
@@ -343,19 +343,19 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
     bar++;if(bar%st.bars===0){ci=(ci+1)%prog.length;if(ci===0){secLeft--;if(secLeft<=0)nextSection();}}};
   return {src:srcs,ahead:st.tape?3:8,tick(until){for(const l of layers)l.tick&&l.tick(until);while(t<until){barSlot(t);t+=4*beat;}},
     update(ns){const oldProg=st.prog;Object.assign(st,ns);bpm=(ns.bpm[0]+ns.bpm[1])/2;beat=60/bpm; /* tempo, busyness, tone, drums and mood change live while it plays */
-      warm.frequency.setTargetAtTime(st.lp,a.currentTime,.08);warm2.frequency.setTargetAtTime(st.lp,a.currentTime,.08);if(hg)hg.gain.setTargetAtTime(.006*st.hiss,a.currentTime,.1);if(hfx&&st.hissF)hfx.frequency.setTargetAtTime(st.hissF,a.currentTime,.1);if(st.wobble)wowG.gain.setTargetAtTime(st.wobble,a.currentTime,.2);if(st.prog!==oldProg)prog=choose(PROGS[st.prog]);}};}
+      warm.frequency.setTargetAtTime(st.lp,a.currentTime,.08);warm2.frequency.setTargetAtTime(st.lp,a.currentTime,.08);if(hg)hg.gain.setTargetAtTime(.0032*st.hiss,a.currentTime,.1);if(hfx&&st.hissF)hfx.frequency.setTargetAtTime(st.hissF,a.currentTime,.1);if(st.wobble)wowG.gain.setTargetAtTime(st.wobble,a.currentTime,.2);if(st.prog!==oldProg)prog=choose(PROGS[st.prog]);}};}
 for(const s of MUSIC)SOUNDS[s.id]=(a,dest)=>music(a,dest,STYLES[s.id]);
 /* Rooftop, the upbeat one, is a mixtape: House beat, Synth bass, Pad, seed 1 (the "8butt" tape). It took over CRT Dreams'
    slot and id (gen:crt, 94.1), so saved settings and broadcast links that pointed at CRT Dreams land here */
 const ROOFTOP={n:'Rooftop',c:4,d:3,b:3,k:3,w:0,p:1,f:941,s:1,r:1,e:5,i:1};
 /* the rest of the lineup is built the same way: each station is a tape recipe (a groove, parts, and a seed for the tune) */
 const STATION_RECIPE={
-  'gen:window':{n:'Rainy Window',c:2,d:2,b:1,k:2,w:1,p:0,f:917,s:0,r:10,e:5,i:1},   /* lo-fi beat, warm bass, fingerpicked guitar, rain */
-  'gen:last':  {n:'Last Call',c:6,d:4,b:2,k:1,w:0,p:1,f:929,s:4,r:23,e:5,i:1},      /* trip-hop: heavy dusty break, deep bass, Rhodes; D minor */
   'gen:crt':ROOFTOP,                                                              /* house */
-  'gen:escape':{n:'Fire Escape',c:5,d:5,b:3,k:3,w:0,p:1,f:975,s:5,r:15,e:5,i:1},    /* synthwave: gated snare, driving synth bass, pad, arp, saw lead; A minor */
-  'gen:nine':  {n:'Nine Lives',c:7,d:2,b:1,k:4,w:0,p:1,f:1029,s:3,r:18,e:5,i:1}};   /* 8-bit, between levels; C major */
-for(const id in STATION_RECIPE)SOUNDS[id]=(a,dest)=>band(a,dest,STATION_RECIPE[id]);
+  'gen:nine':  {n:'Nine Lives',c:7,d:2,b:1,k:4,w:0,p:1,f:879,s:3,r:18,e:5,i:1}};   /* 8-bit, between levels; C major; first on the dial */
+/* extras a station gets that tapes don't. Nine Lives has the late-night video-show sheen: a chorused synth pad under
+   the chip parts and a real clap on two and four, like a Friday-night music video show in 1984 */
+const STATION_OPTS={'gen:nine':{sheen:1}};
+for(const id in STATION_RECIPE)SOUNDS[id]=(a,dest)=>band(a,dest,STATION_RECIPE[id],STATION_OPTS[id]);
 /* ===== Mixtapes: a tiny four-track loop machine =====
    You pick the parts: drums, bass, keys and the atmosphere outside, and how fast. Catnip FM does the rest: the tape's name
    quietly picks the key, a mood, the chord changes and a little hook that comes back every eight bars; the bass follows
@@ -374,7 +374,7 @@ const HARMONY=[
 /* the recording: lo-fi drums get a cassette; everything else is clean */
 const RECORDING=[
   {dr:.8,hp:25,l1:18000,l2:18000,sh:0,hi:0,wo:0,fl:0},
-  {dr:2,hp:75,l1:6000,l2:8500,sh:3,hi:.016,wo:11,fl:3.5}];
+  {dr:2,hp:75,l1:6000,l2:8500,sh:3,hi:.008,wo:6,fl:2}]; /* the cassette, turned down: half the hiss, a gentler wobble */
 function seeded(str){let h=2166136261;for(const ch of String(str))h=Math.imul(h^ch.charCodeAt(0),16777619);
   return ()=>{h=h+0x6D2B79F5|0;let t=h;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
 const parseProg=s=>s.split(' ').map(x=>{const m=x.match(/^(\d+)(\w+)$/);return [+m[1],m[2]];});
@@ -396,7 +396,7 @@ function ksBuf(a,m,kind){const k=a.sampleRate+'|'+m+'|'+kind+'|'+Math.floor(Math
 function pulseWave(a,duty){a.__pw=a.__pw||{};if(a.__pw[duty])return a.__pw[duty];const n=40,re=new Float32Array(n),im=new Float32Array(n);
   for(let i=1;i<n;i++)re[i]=2/(i*Math.PI)*Math.sin(i*Math.PI*duty);return a.__pw[duty]=a.createPeriodicWave(re,im);}
 let SATC=null;
-function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
+function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape({});
   const D=tp.d,BS=tp.b,KO=tp.k===0,K=tp.k-1,G=tp.p,IND=!!tp.i,chipKeys=K===3,chip=IND?tp.s===3:chipKeys,ambient=D===0&&(IND||K===2);
   /* K: 0 Rhodes, 1 guitar, 2 pad, 3 8-bit. Independent tapes (i, everything made since the layers got separate): the starting
      track alone sets the drums, groove and tempo (only the 8-bit start uses the chip kit), so 8-bit keys are just keys.
@@ -558,6 +558,7 @@ function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
         for(const i of [2,6,10,14])hat(st(b0,i),[.25,.35,.4][G],true);if(G>=1)for(let i=0;i<16;i++)if(G===2?i%4!==2:true)(G===2?hat:shaker)(st(b0,i),i%2?.4:.65);
         if(fill)clap(st(b0,15),.4);}}
     else if(bd)for(let i=2;i<16;i+=4)hat(st(b0,i),.35,D===3);
+    if(opt.sheen&&D>0&&!bd)for(const i of [4,12]){const tc=st(b0,i);for(let k=0;k<3;k++)noise(tc+k*.011,'bandpass',1250,1,.002,k<2?.012:.14,.026,-.05,.4,drumG);} /* a real clap on two and four over the chip kit */
     /* ---- BASS: follows the chords, in the drums' feel ---- */
     if(BS>0&&!bd){const lo=BS===2?33:36,r=rootOf(ch,lo,lo+11),r5=r+7>lo+16?r-5:r+7,nr=rootOf(nx,lo,lo+11);
       const play=(i,m,len,v)=>{const tt=st(b0,i),dur=len*step;logHit('bs',tt);if(BS===1)bassLo(tt,m,dur,v);else if(BS===2)sub(tt,m,dur,v);else if(chip||(chipKeys&&!IND))tri(tt,m+12,dur*.9,v*.9);else sbass(tt,m+12,dur,v);};
@@ -589,6 +590,7 @@ function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
     else{ /* 8-bit arpeggios */
       const tr=voice('ar',ch,60,76),seq=tr.concat([tr[0]+12]);const ar=G===0||feel===0?2:1;
       for(let i=0;i<16;i+=ar){const k=G===2?[0,1,2,3,2,1][i%6]:i/ar;pulse(st(b0,i),seq[k%seq.length],step*ar*.85,ar===2?.4:.32,.125,false,-.25);}}
+    if(opt.sheen&&bi%2===0)pad(b0,voice('sh',ch,55,72),full*2,.42,.7,'triangle'); /* the video-show sheen: a soft chorused pad under it all */
     /* the tune */
     const hookOn=bi%8===2&&!(ambient&&bi%16!==2);
     if(bi%64===32||!hookB)hookB=makeHook(seeded(SEEDSTR+':b'+Math.floor(bi/64))); /* the B half gets its own hook, and a new one every 64 bars */
@@ -712,7 +714,7 @@ const CITY_H=50,CITY=new Uint8Array(W*CITY_H),CITY_WIN=new Int32Array(W*CITY_H).
   for(let x=106;x<113;x++)for(let y=19;y<24;y++)set(x,y,(y===19||x===106||x===112)?3:2);for(let y=17;y<19;y++)set(109,y,3);
   for(let wy=27;wy<44;wy+=4)for(let wx=101;wx<W-1;wx+=5){const id=wid++;for(let a=0;a<2;a++)for(let b=0;b<2;b++){set(wx+a,wy+b,6);CITY_WIN[(wy+b)*W+wx+a]=id;}}
   for(let wy=36;wy<44;wy+=4)for(let wx=3;wx<22;wx+=5){const id=wid++;for(let a=0;a<2;a++){set(wx+a,wy,6);CITY_WIN[wy*W+wx+a]=id;}}})();
-function raining(now){if(SKY_FORCE)return SKY_FORCE==='rain';if(gen){const tp=tapeOf(gen.id);if(tp)return tp.w===1;return gen.id==='gen:rain'||gen.id==='gen:window';}return dayRand(now)<.18;} /* rain on the rain stations and rainy tapes; with nothing playing, about one day in six */
+function raining(now){if(SKY_FORCE)return SKY_FORCE==='rain';if(gen){const tp=tapeOf(gen.id);if(tp)return tp.w===1;return gen.id==='gen:rain';}return dayRand(now)<.18;} /* rain on the rain stations and rainy tapes; with nothing playing, about one day in six */
 /* draw city rows y0..y1 (global) into a buffer starting at row `off` */
 function drawCity(buf,y0,y1,t,P,now){const night=isNight(now),frac=night?.5:.3,base=P.PEG?0xb8a68a:P.MID,far=dim(base,.24),near=dim(base,.4),edge=dim(base,.62),wf=dim(P.S2,.55),wn=dim(P.S2,.75),wd=dim(base,.3); /* on 808 the city is putty-grey, like the case; elsewhere it's the palette's own colour */
   for(let y=y0;y<y1;y++)for(let x=0;x<W;x++){const k=CITY[y*W+x];if(!k)continue;let c;
@@ -809,7 +811,7 @@ stationEl.addEventListener('change',()=>{const v=stationEl.value;
   const tp=tapeOf(v);const s=CALM.find(x=>x.id===v)||MUSIC.find(x=>x.id===v)||(tp&&{id:v,name:tp.n});if(s)setStation(s);else stationEl.value=S.station||'';});
 /* ================= the tuner =================
    A digital tuner, like an 80s receiver: a glowing readout (band, frequency, name) with ◀ ▶ to step, and three band
-   keys that are also the three ways to use Catnip FM: FOCUS (the six music stations), CALM (rain, ocean, fire, purr,
+   keys that are also the three ways to use Catnip FM: FOCUS (the three music stations), CALM (rain, ocean, fire, purr,
    brown noise) and TAPES (your mixtapes, with a count, so they're never hidden). The real <select> stays for
    keyboard and screen-reader users. */
 const BANDS=[{k:'focus',name:'FOCUS'},{k:'calm',name:'CALM'},{k:'tapes',name:'TAPES'}];
@@ -869,7 +871,7 @@ const mt=document.createElement('section');mt.className='mixtape';mt.id='mixtape
    (lit = playing, unlit = available, tap a lit one to take it out). SAVE TAPE names it and pops it back out. */
 const ROWS=[{k:'b',name:'Bass',opts:[[1,'Warm'],[2,'Deep'],[3,'Synth']]},{k:'k',name:'Keys',opts:[[1,'Rhodes'],[3,'Pad'],[4,'8-bit']],extra:[[2,'Guitar']]},{k:'w',name:'Outside',opts:[[1,'Rain'],[4,'Purr'],[3,'Fire']],extra:[[2,'Ocean']]}];
 /* each station has its own cassette and a line about it */
-const STATION_TAPE={'gen:late':[1,'Warm Rhodes and a lazy beat. Built for working late.'],'gen:window':[2,'A lo-fi beat, fingerpicked guitar and rain on the roof. Study mode.'],'gen:last':[6,'Trip-hop: a heavy, dusty break, deep bass and smoky Rhodes. Smells like 1996.'],'gen:crt':[4,'House drums, synth bass and a soft pad. The upbeat one.'],'gen:escape':[5,'Synthwave: a gated snare, driving bass and neon pads. Sunglasses optional.'],'gen:nine':[7,'8-bit, between levels. Blow on the cartridge first.'],
+const STATION_TAPE={'gen:late':[1,'Warm Rhodes and a lazy beat. Built for working late.'],'gen:crt':[4,'House drums, synth bass and a soft pad. The upbeat one.'],'gen:nine':[7,'8-bit, between levels. Blow on the cartridge first.'],
   'gen:purr':[3,'Just Loafie, purring.'],'gen:rain':[2,'Rain on the window. Nothing else.'],'gen:waves':[2,'Slow waves on a quiet beach.'],'gen:fire':[4,'A low fire, crackling now and then.'],'gen:brown':[6,'Brown noise. Soft, steady, nothing to notice.']};
 mt.innerHTML=`<header class="mt-head"><span class="mt-print mt-where"></span><button class="icon mt-x" type="button" aria-label="Done mixing" title="Done mixing">✕</button></header>
 <div class="mt-now"><div class="mt-left"><button type="button" class="mt-big"></button></div><div class="mt-info">
@@ -1186,7 +1188,7 @@ function season(d){let m=d.getMonth();if(SOUTH)m=(m+6)%12;return m===11||m<2?'wi
 function dayRand(d){let h=d.getFullYear()*400+d.getMonth()*32+d.getDate();h=Math.imul(h^h>>>15,2246822507);h=Math.imul(h^h>>>13,3266489909);return ((h^h>>>16)>>>0)/4294967296;}
 function isNight(d){if(NIGHT_FORCE)return true;const h=d.getHours();return h>=20||h<6;}
 /* while something plays, the sky goes with it; otherwise it follows the season and the day */
-const STATION_SKY={'gen:window':'rain','gen:rain':'rain','gen:late':'stars','gen:last':'stars','gen:escape':'stars','gen:nine':'stars','gen:waves':'stars','gen:fire':'stars','gen:crt':'stars','gen:purr':'plain','gen:brown':'plain'};
+const STATION_SKY={'gen:rain':'rain','gen:late':'stars','gen:nine':'stars','gen:waves':'stars','gen:fire':'stars','gen:crt':'stars','gen:purr':'plain','gen:brown':'plain'};
 function skyKind(d){if(SKY_FORCE)return SKY_FORCE;
   if(gen){if(STATION_SKY[gen.id])return STATION_SKY[gen.id];const tp=tapeOf(gen.id);
     if(tp)return tp.w===1?'rain':tp.w===2||tp.w===3?'stars':tp.w===4?'plain':(tp.k===4?'matrix':'stars');} /* a tape: its atmosphere, or stars (code rain for 8-bit) */
@@ -1194,7 +1196,7 @@ function skyKind(d){if(SKY_FORCE)return SKY_FORCE;
   if(s==='winter')return r<.45?'snow':r<.6?'rain':'clear';
   if(r<.18)return 'rain';
   return s==='autumn'?'leaves':s==='spring'?'petals':isNight(d)?'fireflies':'clear';}
-function outsideNow(){if(!gen)return 0;const tp=tapeOf(gen.id);if(tp)return tp.w;return {'gen:rain':1,'gen:window':1,'gen:waves':2,'gen:fire':3,'gen:purr':4}[gen.id]||0;}
+function outsideNow(){if(!gen)return 0;const tp=tapeOf(gen.id);if(tp)return tp.w;return {'gen:rain':1,'gen:waves':2,'gen:fire':3,'gen:purr':4}[gen.id]||0;}
 const TINT=[null,['#7fb4e6','#a9d4ff'],['#5fe0d6','#a6fff4'],['#ff8a3d','#ef5548','#ffc06b'],['#f7d7c4','#f4a9c8']];
 function tint(t){const w=outsideNow();if(!w)return;const cols=TINT[w].map(hexInt),n=RM.matches?2:4;
   for(let i=0;i<n;i++){const k=Math.floor(t*(w===3?2.2:.5)+i*7.3),h=Math.abs(Math.sin(k*12.9898+i)*43758.5)%1,a=w===3?.35+.4*Math.abs(Math.sin(t*9+i*3)):.25+.2*Math.sin(t*1.3+i);
