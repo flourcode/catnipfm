@@ -144,7 +144,7 @@ if(BC){BC.tz=BCQ.get('tz')||(BC.mode==='live'?'America/Los_Angeles':'');try{if(B
   BC.list=(BCQ.get('stations')||'').split(',').map(k=>ST_KEYS[k.trim()]).filter(Boolean);BC.rotate=Math.max(0,+BCQ.get('rotate')||0);
   let first=ST_KEYS[BCQ.get('station')]||BC.list[0]||'gen:nine';if(BCQ.get('tape')){const tp=decodeTape(BCQ.get('tape'));if(tp){draft=tp;first='tape:draft';}}S.station=first;if(BCQ.get('palette'))S.palette=BCQ.get('palette');if(BCQ.get('coat'))S.coat=BCQ.get('coat');
   if(BCQ.get('vol'))S.volume=Math.max(0,Math.min(1,+BCQ.get('vol')));BC.treats=BCQ.get('treats')!=='0';
-  document.documentElement.classList.add('broadcast');document.documentElement.dataset.theme=BCQ.get('case')==='light'?'light':'dark';}
+  document.documentElement.classList.add('broadcast');document.documentElement.dataset.theme='dark';}
 /* the time in the broadcast's time zone, as a Date whose local fields read in that zone (worked out once a second) */
 let tzCache={k:0,d:null};
 function NOW(){if(!BC||!BC.tz)return new Date();const k=Math.floor(Date.now()/1000);if(tzCache.k===k)return tzCache.d;
@@ -1097,7 +1097,7 @@ function tone(T,C,h){const L=T<=0?0:(T+16)/116;for(;C>=0;C-=.004){const a=C*Math
   const r=4.0767416621*l-3.3077115913*m+.2309699292*s,g=-1.2684380046*l+2.6097574011*m-.3413193965*s,bb=-.0041960863*l-.7034186147*m+1.7076147010*s;
   if(r>=-.002&&r<=1.002&&g>=-.002&&g<=1.002&&bb>=-.002&&bb<=1.002)return '#'+[r,g,bb].map(v=>gam(v).toString(16).padStart(2,'0')).join('');}const n=gam(L**3).toString(16).padStart(2,'0');return '#'+n+n+n;}
 const lightMQ=matchMedia('(prefers-color-scheme: light)');
-function isLight(){const t=document.documentElement.dataset.theme;return t==='light'||(t!=='dark'&&lightMQ.matches);}
+function isLight(){return false;} /* it's always night at Catnip FM: one dark look, whatever the device is set to */
 function applyScheme(){const pp=PALETTES[S.palette]||PALETTES.crt;const seed=pp.seed||pp.primary;const o=oklch(seed);const h=o.h;const chroma=o.C<.01?0:isLight()?.075:.1; /* tonal-spot: fixed primary chroma, hue from the seed; a grey seed gives a monochrome scheme */
   const cs=chroma?.045:0,cn=chroma?(isLight()?.007:.012):0,cv=chroma?.02:0;const light=isLight();
   const t=light?{p:40,onP:100,pc:90,onPc:30,s:40,sc:90,onSc:30,surf:99.6,low:97,con:95,high:92,highest:90,onS:10,onSv:30,out:50,outv:80,inv:20,onInv:95}

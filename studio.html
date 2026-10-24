@@ -124,10 +124,6 @@
 
     <fieldset>
       <legend>Extras</legend>
-      <div class="seg" role="radiogroup" aria-label="Case">
-        <label><input type="radio" name="case" value="dark" checked>Dark case</label>
-        <label><input type="radio" name="case" value="light">Light case</label>
-      </div>
       <label class="chk"><input type="checkbox" name="treats" id="treats" checked>A treat drops now and then</label>
       <label class="chk"><input type="checkbox" name="dim" id="dim" checked>Dim in the evening</label>
       <label class="chk"><input type="checkbox" name="late" id="late">Late night video look (neon skyline, any time)</label>
@@ -181,11 +177,11 @@
 
   function toForm(){f.mode.value=cfg.mode;st.value=cfg.station;$('rotateOn').checked=cfg.rotateOn;$('rotate').value=cfg.rotate;$('palette').value=cfg.palette;$('coat').value=cfg.coat||'grey';
     $('tz').value=ZONES.some(z=>z[0]===cfg.tz)?cfg.tz:'custom';$('tzCustom').value=ZONES.some(z=>z[0]===cfg.tz)?cfg.tzCustom:cfg.tz;$('label').value=cfg.label;
-    $('vol').value=cfg.vol;f.case.value=cfg.case;$('treats').checked=cfg.treats;$('dim').checked=cfg.dim;$('late').checked=!!cfg.late;f.frame.value=cfg.frame||'wide';$('by').value=cfg.by||'';$('base').value=cfg.base;$('tape').value=cfg.tape||'';
+    $('vol').value=cfg.vol;$('treats').checked=cfg.treats;$('dim').checked=cfg.dim;$('late').checked=!!cfg.late;f.frame.value=cfg.frame||'wide';$('by').value=cfg.by||'';$('base').value=cfg.base;$('tape').value=cfg.tape||'';
     STATIONS.forEach(([k])=>{f['rot_'+k].checked=cfg.rot.includes(k);});}
   function fromForm(){cfg.mode=f.mode.value;cfg.station=st.value;cfg.rotateOn=$('rotateOn').checked;cfg.rotate=Math.max(5,+$('rotate').value||60);cfg.palette=$('palette').value;cfg.coat=$('coat').value;
     cfg.tz=$('tz').value==='custom'?$('tzCustom').value.trim():$('tz').value;cfg.tzCustom=$('tzCustom').value.trim();cfg.label=$('label').value.trim();
-    cfg.vol=+$('vol').value;cfg.case=f.case.value;cfg.treats=$('treats').checked;cfg.dim=$('dim').checked;cfg.late=$('late').checked;cfg.frame=f.frame.value;cfg.by=$('by').value.trim();cfg.base=$('base').value.trim()||DEF.base;cfg.tape=$('tape').value.trim();
+    cfg.vol=+$('vol').value;cfg.treats=$('treats').checked;cfg.dim=$('dim').checked;cfg.late=$('late').checked;cfg.frame=f.frame.value;cfg.by=$('by').value.trim();cfg.base=$('base').value.trim()||DEF.base;cfg.tape=$('tape').value.trim();
     cfg.rot=STATIONS.map(([k])=>k).filter(k=>f['rot_'+k].checked);try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}}
 
   function tapeCode(){const v=(cfg.tape||'').trim();if(!v)return '';const m=v.match(/[?&]tape=([A-Za-z0-9_-]+)/);const c=m?m[1]:(/^[A-Za-z0-9_-]+$/.test(v)?v:'');return c;}
@@ -195,7 +191,7 @@
     p.set('palette',cfg.palette);if(cfg.coat&&cfg.coat!=='grey')p.set('coat',cfg.coat);
     if(cfg.mode==='live'){if(cfg.tz)p.set('tz',cfg.tz);if(cfg.label)p.set('label',cfg.label);}
     p.set('vol',preview&&!$('pvSound').checked?'0':String(cfg.vol));
-    if(cfg.case==='light')p.set('case','light');if(!cfg.treats)p.set('treats','0');if(!cfg.dim)p.set('dim','0');if(cfg.late)p.set('late','1');if(cfg.frame==='vertical')p.set('frame','vertical');if(tc&&cfg.by)p.set('by',cfg.by);
+    if(!cfg.treats)p.set('treats','0');if(!cfg.dim)p.set('dim','0');if(cfg.late)p.set('late','1');if(cfg.frame==='vertical')p.set('frame','vertical');if(tc&&cfg.by)p.set('by',cfg.by);
     let base=cfg.base;try{base=new URL(base,location.href).href;}catch(e){base=DEF.base;}return base.replace(/[?#].*$/,'')+'?'+p.toString().replace(/%2C/g,',').replace(/%2F/g,'/');}
 
   let pvT,lastPv='';

@@ -17,9 +17,7 @@
   --gutter:max(16px,env(safe-area-inset-left,0px)); --wide:1200px; --read:720px;
   color-scheme:dark;
 }
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
-  --p:#3a3940; --on-p:#f7f7f5; --p-c:#e1e1dd; --on-p-c:#24221e; --s:#4d483f; --s-c:#e1e1dd; --on-s-c:#24221e; --surf:#f7f7f5; --surf-low:#f1f1ee; --surf-c:#ebebe8; --surf-high:#e1e1dd; --surf-highest:#d6d6d1; --on-surf:#1d1c21; --on-surf-v:#55545a; --outline:#8e8d88; --outline-v:#d8d7d2; --cat:#827a70; --cat-stripe:#5d5851; color-scheme:light}}
-:root.light{color-scheme:light;--cat:#827a70;--cat-stripe:#5d5851}
+/* no light mode: it's always night at Catnip FM */
 
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -133,8 +131,6 @@ kbd{font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;
 /* ================= 80s: the stripes =================
    Red, red-orange and orange, straight off a tape sleeve. They turn up on the logo, the intro (a cassette J-card),
    the tracklist, the radio case and the footer; the stripe colours stay the same in light and dark. */
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--sleeve:#ffffff}}
-:root.light{--sleeve:#ffffff}
 .brand .stripes{display:inline-grid;gap:2px;width:24px;margin-left:10px;vertical-align:middle}
 .brand .stripes i{display:block;height:3px}
 .stripes i:nth-child(1),.badge i:nth-of-type(1){background:var(--s1)}.stripes i:nth-child(2),.badge i:nth-of-type(2){background:var(--s2)}.stripes i:nth-child(3),.badge i:nth-of-type(3){background:var(--s3)}
@@ -195,4 +191,3 @@ kbd{font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;
 @media (max-width:700px){.unit-print span:last-child{display:none}}
 
 .tag-f{border-color:var(--s3);color:var(--s3)}.tag-c{border-color:var(--c-cyan);color:var(--c-cyan)}.tag-t{border-color:var(--s1);color:var(--s1)}
-:root.light .tag-c{color:#1f8c99;border-color:#1f8c99}
