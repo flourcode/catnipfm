@@ -1,7 +1,7 @@
 
 (function(){
 'use strict';
-const STORE='loafFM';
+const STORE='catnipFM';
 const W=128,H=32;
 
 /* ================= Fonts ================= */
@@ -39,11 +39,9 @@ function wrap(s,area,font='big'){const words=s.split(' ');const lines=[];let cur
 /* ================= State ================= */
 const locale=navigator.language||'en-US';
 const H24=(()=>{try{return !new Intl.DateTimeFormat(locale,{hour:'numeric'}).resolvedOptions().hour12;}catch(e){return false;}})();
-const UNIT=/US|LR|MM/.test(locale.split('-')[1]||'')?'F':'C';
 const DEFAULTS={palette:'pegs',volume:0.7,station:'gen:nine',stationName:'Nine Lives',tapes:[]};
 let S=Object.assign({},DEFAULTS);
 let FIRST=true;try{const saved=JSON.parse(localStorage.getItem(STORE)||'null');if(saved&&typeof saved==='object'){Object.assign(S,saved);FIRST=false;}}catch(e){}
-if('brightness' in S||'sitStart' in S||'mtSeen' in S){delete S.brightness;delete S.sitStart;delete S.mtSeen;try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}} /* manual dim, the 20-minute sit and the first-visit teaser are gone: nobody stays dim or stuck asleep */
 /* her head: the same nine rows everywhere she appears (the board, the cassette label, the coat key, the logo) */
 const HEAD=['..##......##..','..#p#....#p#..','..##########..','.#####hh#####.','#############s','####o#####o##s','####o#####o##s','######hmh####s','.###########s.'];
 /* ================= Loafie's coat =================
@@ -74,9 +72,14 @@ function coatDot(ch,u,j,fy,row,last){const C=COATS[S.coat]||COATS.grey,r=j-fy;
   if(C.a){if((r<=1&&u<=5)||(r>=6&&u>=7&&u<=10))c=C.a;else if((r<=0&&u>=9)||tail)c=C.z;} /* calico patches */
   return hx(c);}
 /* ================= Mixtapes =================
-   A mixtape is a small recipe for one of Catnip FM's stations: which station it starts from, mood, drums, weather, tempo,
-   busyness and tone, plus a name and a label colour. It's a few numbers, so it saves in the browser and fits in a link. */
-/* eight cassette shells in the era's design language (no real brands); a new tape gets one at random */
+   A mixtape is a small recipe, a few numbers that save in the browser and fit in a link:
+     s  starting track (0 Lo-fi, 1 House, 2 Ambient, 3 8-bit)     d  drums it sets (0 off, 1 soft, 2 lo-fi, 3 house)
+     p  speed (0 Slow, 1 Easy, 2 Fast)                             b  bass (0 off, 1 Warm, 2 Deep, 3 Synth)
+     k  keys (0 off, 1 Rhodes, 2 Guitar, 3 Pad, 4 8-bit)           w  outside (0 none, 1 Rain, 2 Ocean, 3 Fire, 4 Purr)
+     n  name     c  cassette shell     f  frequency x10     r  seed (the tune)     by  optional "mixed by" credit
+     e  schema version (5)     i  1 = independent layers (every tape made now)
+   Links carry [7, n, c, d, b, k, w, p, f, s, r, by?]; decodeTape() still reads versions 1 to 6 for old links. */
+/* fourteen cassette shells in the era's design language (no real brands); a new tape gets one at random */
 const SHELLS=[
   {sh:'#e7dcc3',hi:'#f4ecd9',lab:'#e8902f',strip:'#fff7e6',ink:'#1d1c21',acc:'#e8902f'},             /* cream and orange */
   {sh:'#232227',hi:'#3a3940',lab:'#f2c94c',strip:'#232227',ink:'#f2c94c',acc:'#f2c94c'},             /* black and yellow */
@@ -109,18 +112,18 @@ function cleanTape(t){if(!t||typeof t!=='object')return null;const n=String(t.n|
       const pr=LEGACY[clampInt(v,0,4,0)];d=pr.d;b=pr.b;k=pr.k;p=clampInt(g,0,2,1);}
     else if(t.e!==4)d=[0,1,1,2][clampInt(d,0,3,1)]; /* the drums version: brushes become lo-fi */
     const d4=clampInt(d,0,3,1),k4=clampInt(k,0,3,0);d=[0,2,3,2][d4];k=k4+1;sb=k4===3?3:d4===2?1:d4===0&&k4===2?2:0;} /* the steps version: beats and keys renumbered, keys can now be off */
-  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,SHELLS.length-1,0),d:clampInt(d,0,3,1),b:clampInt(b,0,3,0),k:clampInt(k,0,4,1),w:clampInt(t.w,0,4,0),p:clampInt(p,0,2,1),f:clampInt(t.f,879,1079,0)||randFreq(),s:clampInt(sb,0,3,0),r:clampInt(t.r,1,2147483647,0),e:5,i:t.i?1:0,by:cleanBy(t.by)};} /* r: the tune's seed (0 on older tapes: their name is the seed, so they keep their tune) */
+  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,SHELLS.length-1,0),d:clampInt(d,0,3,1),b:clampInt(b,0,3,0),k:clampInt(k,0,4,1),w:clampInt(t.w,0,4,0),p:clampInt(p,0,2,1),f:clampInt(t.f,879,1079,0)||randFreq(),s:clampInt(sb,0,3,0),r:clampInt(t.r,1,2147483647,0),e:5,i:t.i?1:0,by:cleanBy(t.by),from:cleanBy(t.from)};} /* from: whose tape this was remixed from (one generation) */ /* r: the tune's seed (0 on older tapes: their name is the seed, so they keep their tune) */
 function randFreq(){const taken=new Set(Object.values(FREQ_FIXED).map(f=>Math.round(f*10)));let f;do{f=879+2*Math.floor(Math.random()*101);}while(taken.has(f));return f;} /* a free spot on the dial, odd tenths like real FM */
-const FREQ_FIXED={nine:87.9,late:88.3,crt:94.1,purr:89.9,rain:90.5,waves:93.3,fire:99.1,brown:100.7};
+const FREQ_FIXED={nine:87.9,late:88.3,crt:94.1,today:91.3,dead:83.3,purr:89.9,rain:90.5,waves:93.3,fire:99.1,brown:100.7};
 S.tapes=(Array.isArray(S.tapes)?S.tapes:[]).map(cleanTape).filter(t=>t&&t.id).slice(0,TAPE_MAX);
 /* an unsaved mixtape is kept quietly too, so a refresh or a closed tab doesn't lose it */
 function keepDraft(){if(BC)return;S.draft=draft?Object.assign({},draft):null;save();}
 function tapeOf(id){if(typeof id!=='string'||!id.startsWith('tape:'))return null;return id==='tape:draft'?draft:S.tapes.find(t=>'tape:'+t.id===id)||null;}
 function levelOf(id){if(GEN_LEVEL[id]!=null)return GEN_LEVEL[id];const tp=tapeOf(id);return tp?TAPE_LEVEL:.8;}
 function freqOf(id){if(FREQ[id])return FREQ[id];const tp=tapeOf(id);return tp?(tp.f/10).toFixed(1):'88.3';} /* every tape keeps its own spot on the dial, chosen when it's made */
-function encodeTape(t,by){const a=[t.i?7:6,t.n,t.c,t.d,t.b,t.k,t.w,t.p,t.f,t.s,t.r];if(cleanBy(by))a.push(cleanBy(by));const j=JSON.stringify(a); /* an optional 12th field: who made it */return btoa(unescape(encodeURIComponent(j))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function encodeTape(t,by){const a=[t.i?7:6,t.n,t.c,t.d,t.b,t.k,t.w,t.p,t.f,t.s,t.r];const b2=cleanBy(by),fr=cleanBy(t.from);if(b2||fr)a.push(b2||'');if(fr)a.push(fr);const j=JSON.stringify(a); /* optional 12th and 13th fields: who made it, and whose tape it was remixed from */return btoa(unescape(encodeURIComponent(j))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function decodeTape(s){try{const a=JSON.parse(decodeURIComponent(escape(atob(String(s).replace(/-/g,'+').replace(/_/g,'/')))));if(!Array.isArray(a))return null;
-  if(a[0]===7||a[0]===6)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],s:a[9],r:a[10],by:a[11],e:5,i:a[0]===7?1:0}); /* 7: the same fields, with independent layers */
+  if(a[0]===7||a[0]===6)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],s:a[9],r:a[10],by:a[11],from:a[12],e:5,i:a[0]===7?1:0}); /* 7: the same fields, with independent layers */
   if(a[0]===5)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],s:a[9],e:5});
   if(a[0]===4)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],e:4});
   if(a[0]===3)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8]});
@@ -133,13 +136,13 @@ function save(){if(BC)return;try{localStorage.setItem(STORE,JSON.stringify(S));}
    ?broadcast=live    for a 24/7 livestream: the frequency up top, the real time on the small line, in one time zone
    Options: &station=nine|late|crt|purr|rain|ocean|fire|brown   &tz=America/Los_Angeles (live)
             &rotate=60&stations=nine,late,crt (change station every N minutes)   &palette=pegs|teal|red|amber|crt|moon|ember
-            &vol=0.8   &case=dark|light   &treats=0 (no automatic treats)   &label=JST (time-zone label)   &dim=0 (no evening dimming)
+            &vol=0.8   &treats=0 (no automatic treats)   &label=JST (time-zone label)   &dim=0 (no evening dimming)
    Full-screen 16:9 board, no page or controls, sound starts by itself (OBS allows it), she never dozes off waiting
    for a mouse that isn't coming, and every so often a treat drops on its own. */
 const BCQ=new URLSearchParams(location.search),BC=/^(video|live)$/.test(BCQ.get('broadcast')||'')?{mode:BCQ.get('broadcast')}:null;
 if(!BC&&S.draft){draft=cleanTape(S.draft);if(draft)delete draft.id;}
-const ST_KEYS={late:'gen:late',crt:'gen:crt',rooftop:'gen:crt',roof:'gen:crt',nine:'gen:nine',ninelives:'gen:nine',purr:'gen:purr',rain:'gen:rain',ocean:'gen:waves',waves:'gen:waves',fire:'gen:fire',brown:'gen:brown'};
-const FREQ={'gen:nine':'87.9','gen:late':'88.3','gen:crt':'94.1','gen:purr':'89.9','gen:rain':'90.5','gen:waves':'93.3','gen:fire':'99.1','gen:brown':'100.7'};
+const ST_KEYS={late:'gen:late',crt:'gen:crt',rooftop:'gen:crt',roof:'gen:crt',nine:'gen:nine',ninelives:'gen:nine',today:'gen:today',deadair:'gen:dead',dead:'gen:dead',purr:'gen:purr',rain:'gen:rain',ocean:'gen:waves',waves:'gen:waves',fire:'gen:fire',brown:'gen:brown'};
+const FREQ={'gen:nine':'87.9','gen:late':'88.3','gen:crt':'94.1','gen:today':'91.3','gen:dead':'83.3','gen:purr':'89.9','gen:rain':'90.5','gen:waves':'93.3','gen:fire':'99.1','gen:brown':'100.7'};
 if(BC){BC.tz=BCQ.get('tz')||(BC.mode==='live'?'America/Los_Angeles':'');try{if(BC.tz)new Intl.DateTimeFormat('en-US',{timeZone:BC.tz});}catch(e){BC.tz='America/Los_Angeles';}
   BC.by=(BCQ.get('by')||'').replace(/[^\w &'.,!?\/-]/g,'').trim().slice(0,28).toUpperCase(); /* the credit's artist line for a listener's tape */
   BC.list=(BCQ.get('stations')||'').split(',').map(k=>ST_KEYS[k.trim()]).filter(Boolean);BC.rotate=Math.max(0,+BCQ.get('rotate')||0);
@@ -154,12 +157,12 @@ function NOW(){if(!BC||!BC.tz)return new Date();const k=Math.floor(Date.now()/10
   const p={};for(const x of new Intl.DateTimeFormat('en-US',{timeZone:BC.tz,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric'}).formatToParts(new Date()))p[x.type]=x.value;
   tzCache={k,d:new Date(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute,+p.second)};return tzCache.d;}
 function tzLabel(){if(!BC||!BC.tz)return '';if(BCQ.get('label'))return BCQ.get('label').toUpperCase().slice(0,6);try{const n=new Intl.DateTimeFormat('en-US',{timeZone:BC.tz,timeZoneName:'short'}).formatToParts(new Date()).find(x=>x.type==='timeZoneName').value;return /^[A-Z][SD]T$/.test(n)?n[0]+'T':n.replace(/^GMT$/,'UTC');}catch(e){return '';}}
-/* Five vintage displays. Each is a ramp, not one colour: off = unlit dots, deep = shadows under the desk,
-   mid = desk line and the cat's shading, primary = clock and text, secondary = labels, hi = moon, snow and sparkle,
+/* The displays (three shown: 808, VFD, Red LED; four older ones kept for the studio and old links). Each is a ramp, not one colour:
+   off = unlit dots, deep = shadows, mid = the cat's shading, primary = clock and text, secondary = labels, hi = sparkle,
    accent = divider and hearts (deliberately off-hue), fish = her fish. floor keeps night palettes readable. */
 const PALETTES={
-  /* Pegs: a black pegboard with coloured plastic pegs, like the light-up toy from the 80s. Every digit gets its own colour,
-     the desk edge is a row of rainbow pegs, and now and then a peg is in the wrong place, the way a kid would leave it. */
+  /* Pegs (shown as 808): a black pegboard with coloured plastic pegs, like the light-up toy from the 80s. Every digit gets
+     its own colour, and now and then a peg is in the wrong place, the way a kid would leave it. */
   pegs:  {name:'808',       primary:'#f4ecd8',secondary:'#f08a24',accent:'#e8392b',bg:'#050505',seed:'#707070',off:'#151412',deep:'#2a1a12',mid:'#c9632a',hi:'#fff6e0',fish:'#f08a24',peg:true,meter:['#f2d14d','#f08a24','#e8392b'],
           rainbow:['#e8392b','#f08a24','#f2d14d','#f4ecd8','#e8392b','#f08a24','#f2d14d','#f4ecd8'],digits:['#e8392b','#f08a24','#f2d14d','#f4ecd8']}, /* the default: the 808's step-key colours (red, orange, yellow, cream) as glowing pegs. Id kept as 'pegs' so saved choices still work */
   teal:  {name:'VFD',       primary:'#63ddd1',secondary:'#ff8a3d',accent:'#e8392b',bg:'#061314',seed:'#238c89',off:'#0f2021',deep:'#143f3f',mid:'#2a7c77',hi:'#d4fff8',fish:'#ff8a3d',meter:['#2a9d94','#63ddd1','#ff8a3d']}, /* cool: a vacuum-fluorescent receiver display, cyan with orange, same as the tuner */
@@ -168,8 +171,8 @@ const PALETTES={
   crt:   {name:'Phosphor',  primary:'#f1e9c9',secondary:'#b7d39c',accent:'#d9785a',bg:'#0c120e',seed:'#527256',off:'#131c15',deep:'#26392a',mid:'#6f8d67',hi:'#fbf6e2',fish:'#e6a44b'},
   moon:  {name:'Moonlight', primary:'#afc8f4',secondary:'#a88dd8',accent:'#ebcb7d',bg:'#090b1c',seed:'#354f78',off:'#101429',deep:'#17213e',mid:'#354a82',hi:'#f0f4ff',fish:'#ebcb7d',floor:.5}, /* dreamy: icy blue with lavender and pale gold */
   ember: {name:'Ember',     primary:'#ed9272',secondary:'#c65b45',accent:'#f2c46b',bg:'#120d0c',seed:'#7b3029',off:'#1c1312',deep:'#3a1c1c',mid:'#7b3029',hi:'#f7b89a',fish:'#f2c46b',floor:.55}};
-const SHOWN_PALETTES=['pegs','teal','red']; /* three looks: 808, VFD, Amber. Moonlight, Phosphor and Ember still work for anyone who chose them (and in broadcast links) */
-const TRACK_PALETTE=['red','pegs','teal','pegs','red','teal']; /* Lo-fi → Red LED, House → 808, Ambient → VFD, 8-bit → 808 */
+const SHOWN_PALETTES=['pegs','teal','red']; /* three looks: 808, VFD, Red LED. Amber, Moonlight, Phosphor and Ember still work for anyone who chose them (studio's Older looks, and broadcast links) */
+const TRACK_PALETTE=['red','pegs','teal','pegs']; /* Lo-fi → Red LED, House → 808, Ambient → VFD, 8-bit → 808 */
 function pal(){const p=PALETTES[S.palette]||PALETTES.pegs;return {PEG:p.peg?p.rainbow.map(hexInt):null,DIG:p.peg?p.digits.map(hexInt):null,C:hexInt(p.primary),S2:hexInt(p.secondary),A:hexInt(p.accent),BG:hexInt(p.bg),pegs:null,OFF:p.off,DEEP:hexInt(p.deep),MID:hexInt(p.mid),HI:hexInt(p.hi),FISH:hexInt(p.fish),floor:p.floor||0};}
 const DAYS=['SUN','MON','TUE','WED','THU','FRI','SAT'],MONTHS=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function clock(d){let h=d.getHours();const ap=h>=12?'PM':'AM';if(!H24)h=h%12||12;return {s:(H24?String(h).padStart(2,'0'):String(h))+':'+String(d.getMinutes()).padStart(2,'0'),ap,date:DAYS[d.getDay()]+' '+MONTHS[d.getMonth()]+' '+d.getDate()};}
@@ -187,8 +190,8 @@ function makeNoise(a,sec,kind){const n=Math.round(a.sampleRate*sec),b=a.createBu
   for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);let last=0;for(let i=0;i<n;i++){const w=Math.random()*2-1;if(kind==='brown'){last=(last+.02*w)/1.02;d[i]=last*3.5;}else d[i]=w;}
     if(kind==='brown'){const s=d[0],e=d[n-1];for(let i=0;i<n;i++)d[i]-=s+(e-s)*i/(n-1);}} /* ends meet, so the loop never clicks */
   return b;}
-let muted=false,pipMute=null,pipDots=null,pipFeed=null,pipSit=null;const vol=()=>muted?0:S.volume; /* mute is for this visit only; the volume you set is kept */
-const GEN_LEVEL={'gen:brown':.5,'gen:rain':2,'gen:purr':.64,'gen:fire':.76,'gen:waves':1.2,'gen:late':.63,'gen:crt':.33,'gen:nine':.35}; /* matched by ear-weighted level so switching sounds never jumps */
+let muted=false,pipMute=null,pipDots=null,pipFeed=null,pipNap=null;const vol=()=>muted?0:S.volume; /* mute is for this visit only; the volume you set is kept */
+const GEN_LEVEL={'gen:brown':.5,'gen:rain':2,'gen:purr':.64,'gen:fire':.76,'gen:waves':1.2,'gen:late':.63,'gen:crt':.33,'gen:nine':.35,'gen:today':.33,'gen:dead':.4}; /* matched by ear-weighted level so switching sounds never jumps */
 /* ===== The calm sounds =====
    All made in the browser, none of them a loop you can learn: anything that happens (a drop, a wave, a crackle, a breath)
    is scheduled a few seconds ahead with its own random timing and size. They're meant to sit under focus or a sit,
@@ -244,10 +247,11 @@ const SOUNDS={
    bells, an arpeggiator, crickets and tape hiss. A conductor picks chords, voicings, rhythms and the odd
    melody a few seconds ahead, and moves through quiet sections (keys alone, a groove, a little tune,
    a breakdown) so it keeps changing without ever demanding attention. */
-const MUSIC=[{id:'gen:nine',name:'Nine Lives',url:''},{id:'gen:late',name:'Late Shift',url:''},{id:'gen:crt',name:'Rooftop',url:''}];
+const MUSIC=[{id:'gen:nine',name:'Nine Lives',url:''},{id:'gen:late',name:'Late Shift',url:''},{id:'gen:crt',name:'Rooftop',url:''},{id:'gen:today',name:"Today's Tape",url:''}];
+const HIDDEN=[{id:'gen:dead',name:'DEAD AIR'}]; /* not on any band: tune below the bottom of the dial */
 const mtof=m=>440*Math.pow(2,(m-69)/12);
-/* the keys under Loafie: the music tells the desk which note it plays and when, and that key lights up */
-const keyHits=[];function keyHit(a,t,m){if(a!==actx)return;keyHits.push(t,m);if(keyHits.length>300)keyHits.splice(0,150);} /* every melodic note; the keys don't light any more, but the deck's pattern display reads this */
+/* the music tells the deck which note it plays and when (the ON THIS TAPE display reads this) */
+const keyHits=[];function keyHit(a,t,m){if(a!==actx)return;keyHits.push(t,m);if(keyHits.length>300)keyHits.splice(0,150);} /* logs melodic hits for the cassette deck's pattern display */
 const choose=a=>a[Math.floor(Math.random()*a.length)];
 const CH={maj7:[0,4,7,11],m7:[0,3,7,10],dom7:[0,4,7,10],maj9:[0,4,7,11,14],m9:[0,3,7,10,14],dom9:[0,4,7,10,14],sus:[0,5,7,10],m11:[0,3,7,10,17],add9:[0,4,7,14]};
 /* progressions as [scale-degree root in semitones, chord type] */
@@ -365,16 +369,24 @@ const STATION_RECIPE={
   'gen:nine':  {n:'Nine Lives',c:7,d:2,b:1,k:4,w:0,p:1,f:879,s:3,r:18,e:5,i:1}};   /* 8-bit, between levels; C major; first on the dial */
 /* extras a station gets that tapes don't. Nine Lives has the late-night video-show sheen: a chorused synth pad under
    the chip parts and a real clap on two and four, like a Friday-night music video show in 1984 */
-const STATION_OPTS={'gen:nine':{sheen:1}};
-for(const id in STATION_RECIPE)SOUNDS[id]=(a,dest)=>band(a,dest,STATION_RECIPE[id],STATION_OPTS[id]);
+const STATION_OPTS={'gen:nine':{sheen:1},'gen:dead':{dead:1}};
+/* Today's Tape: the recipe and the seed come from the date, so everyone hears the same tape that day. No streaks, nothing saved. */
+function todayKey(){const d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}
+function todayTape(){const R=seeded('today:'+todayKey()),pick=a=>a[Math.floor(R()*a.length)],s=pick([0,0,1,1,2,3]),B=BASES[s][1];
+  return {n:'Today\'s Tape',c:Math.floor(R()*SHELLS.length),d:B.d,b:pick([1,1,2,3]),k:s===3?4:pick([1,1,2,3]),w:pick([0,0,0,1,4]),p:B.p,f:913,s,r:1+Math.floor(R()*2147483646),e:5,i:1};}
+function todayLabel(){const d=new Date();return DAYNAME[d.getDay()].toUpperCase()+' '+(d.getMonth()+1)+'/'+d.getDate();}
+STATION_RECIPE['gen:today']=todayTape();setInterval(()=>{const t=todayTape();if(t.r!==STATION_RECIPE['gen:today'].r){STATION_RECIPE['gen:today']=t;dirty=true;}},60000); /* turns over at midnight */
+/* DEAD AIR, 83.3: a slow drone under static. Found by tuning below Nine Lives, or ?station=deadair. Not explained anywhere. */
+STATION_RECIPE['gen:dead']={n:'DEAD AIR',c:6,d:0,b:2,k:3,w:0,p:0,f:833,s:2,r:8313,e:5,i:1};
+for(const id in STATION_RECIPE)SOUNDS[id]=(a,dest)=>band(a,dest,STATION_RECIPE[id],STATION_OPTS[id]);SOUNDS['gen:today']=(a,dest)=>band(a,dest,STATION_RECIPE['gen:today']); /* today's is looked up each time, so it can turn over */
 /* ===== Mixtapes: a tiny four-track loop machine =====
    You pick the parts: drums, bass, keys and the atmosphere outside, and how fast. Catnip FM does the rest: the tape's name
    quietly picks the key, a mood, the chord changes and a little hook that comes back every eight bars; the bass follows
    the chords, the keys play in the beat's feel (offbeat guitar chops over house, fingerpicking over lo-fi), the drums get small
    fills, and every part is humanised. Vibes are only presets: one tap fills in all four tracks as a starting point. */
-const DRUMS=['Soft','Lo-fi','House'],BASSES=['Warm','Deep','Synth'],KEYS=['Rhodes','Guitar','Pad','8-bit'],OUTSIDE=['Rain','Ocean','Fire','Purr'],SPEEDS=['Slow','Easy','Fast']; /* each layer: 0 is off */
+const BASSES=['Warm','Deep','Synth'],KEYS=['Rhodes','Guitar','Pad','8-bit'],OUTSIDE=['Rain','Ocean','Fire','Purr'],SPEEDS=['Slow','Easy','Fast']; /* each layer: 0 is off */
 const TAPE_LEVEL=.33; /* matched by measured loudness to the stations (see the README) */
-const TEMPO=[[60,70,82],[68,78,88],[72,82,92],[112,120,126],[76,84,92],[92,104,116]],SWING=[[.1,.08,.06],[.12,.1,.08],[.16,.13,.09],[.1,.07,.04],[.1,.08,.06],[0,0,0]]; /* by drums (off, soft, lo-fi, house, trip-hop, synthwave), then pace */
+const TEMPO=[[60,70,82],[68,78,88],[72,82,92],[112,120,126]],SWING=[[.1,.08,.06],[.12,.1,.08],[.16,.13,.09],[.1,.07,.04]]; /* by drums (off, soft, lo-fi, house), then pace */
 Object.assign(CH,{maj:[0,4,7],min:[0,3,7],m7b5:[0,3,6,10],dim7:[0,3,6,9],dom7b9:[0,4,7,10,13],dom13:[0,4,10,14,21],six9:[0,4,7,9,14],m6:[0,3,7,9,14],maj7s11:[0,4,7,11,18],madd9:[0,3,7,14]});
 const SCALE={ion:[0,2,4,5,7,9,11],aeo:[0,2,3,5,7,8,10],dor:[0,2,3,5,7,9,10],lyd:[0,2,4,6,7,9,11]};
 /* the name picks one of three moods; each has a scale and a few progressions that suit every part ("root+chord" per bar) */
@@ -413,9 +425,9 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
      track alone sets the drums, groove and tempo (only the 8-bit start uses the chip kit), so 8-bit keys are just keys.
      Older tapes keep their sound: there 8-bit keys put the drums through a chip kit and speed things up. */
   /* the feel every part plays in: 0 free (no drums), 2 lo-fi (soft drums too), 3 house */
-  const feel=D===0?0:D===3?3:D===5?5:2; /* trip-hop plays in the lo-fi feel; synthwave has its own, straight and driving */
+  const feel=D===0?0:D===3?3:2;
   /* the name picks the key, the mood, the changes and the hook */
-  const SEEDSTR=tp.r?'seed:'+tp.r:'loaf:'+tp.n.toLowerCase().trim(),RN=seeded(SEEDSTR); /* the tape's own seed; older tapes use their name */const kpc=Math.floor(RN()*12),hook=makeHook(RN),M=Math.floor(RN()*3),pa=Math.floor(RN()*1e6),pb=Math.floor(RN()*1e6);
+  const SEEDSTR=tp.r?'seed:'+tp.r:'loaf:'+tp.n.toLowerCase().trim(),RN=seeded(SEEDSTR); /* the tape's own seed. Older, seedless tapes use their name; the 'loaf:' prefix is a compatibility string, not branding: changing it would change their tunes */const kpc=Math.floor(RN()*12),hook=makeHook(RN),M=Math.floor(RN()*3),pa=Math.floor(RN()*1e6),pb=Math.floor(RN()*1e6);
   const [scName,progStr]=HARMONY[M],SC=SCALE[scName],progs=progStr.map(parseProg),progA=progs[pa%progs.length],progB=progs.length>1?progs[(pa%progs.length+1+pb%(progs.length-1))%progs.length]:progA;
   const bpm=TEMPO[D][G]*(chip&&D<3?1.22:1),beat=60/bpm,step=beat/4,barDur=16*step,swing=SWING[D][G]*(chip?.4:1),bpc=ambient&&G<2?2:1,bright=[1,.85,.72][M],low=0;
   const white=makeNoise(a,3,'white'),srcs=[];
@@ -433,8 +445,9 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
   const wowO=a.createOscillator(),wowG=a.createGain(),flO=a.createOscillator(),flG=a.createGain();wowO.frequency.value=.48;flO.frequency.value=6.3;
   wowO.connect(wowG).connect(wowD.delayTime);flO.connect(flG).connect(wowD.delayTime);wowO.start();flO.start();srcs.push(wowO,flO);
   const cents2s=(c,f)=>c/1731/(2*Math.PI*f);
-  { const r=RECORDING[(D===2||D===4)&&!chip?1:0];drive.gain.value=r.dr;post.gain.value=1/Math.pow(r.dr,.85);hp.frequency.value=r.hp;lp1.frequency.value=r.l1;lp2.frequency.value=r.l2;shelf.gain.value=r.sh;hiss.gain.value=r.hi;wowG.gain.value=cents2s(r.wo,.48);flG.gain.value=cents2s(r.fl,6.3);
-    recOut.gain.value=Math.pow(10,((D===0?2.5:0)+(BS===0?3.5:0)+(KO?3:0)-(ambient?3:0))/20);} /* fewer parts, a little make-up gain, so taking the drums out doesn't make it vanish */
+  { const r=RECORDING[D===2&&!chip?1:0];drive.gain.value=r.dr;post.gain.value=1/Math.pow(r.dr,.85);hp.frequency.value=r.hp;lp1.frequency.value=r.l1;lp2.frequency.value=r.l2;shelf.gain.value=r.sh;hiss.gain.value=r.hi;wowG.gain.value=cents2s(r.wo,.48);flG.gain.value=cents2s(r.fl,6.3);
+    recOut.gain.value=Math.pow(10,((D===0?2.5:0)+(BS===0?3.5:0)+(KO?3:0)-(ambient?3:0))/20);
+    if(opt.dead){hiss.gain.value=.028;hbp.frequency.value=1600;hbp.Q.value=.4;lp1.frequency.value=2600;} /* dead air: static over the drone, the top end gone */} /* fewer parts, a little make-up gain, so taking the drums out doesn't make it vanish */
   const trem=a.createOscillator();trem.frequency.value=2.3;const tremG=a.createGain();tremG.gain.value=.07;trem.connect(tremG);trem.start();srcs.push(trem);
   const epBus=a.createGain();epBus.gain.value=1;tremG.connect(epBus.gain);epBus.connect(inG); /* the electric piano's tremolo, once for all its notes */
   /* atmosphere happens in your room, not on the tape */
@@ -479,14 +492,6 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
     if(vibr&&dur>.25){const lf=a.createOscillator(),lg=a.createGain();lf.frequency.value=6;lg.gain.setValueAtTime(0,t);lg.gain.setValueAtTime(0,t+.15);lg.gain.linearRampToValueAtTime(18,t+.3);lf.connect(lg).connect(o.detune);lf.start(t);lf.stop(t+dur+.05);}
     o.connect(g);out(g,pan||0,.05);o.start(t);o.stop(t+dur+.05);};
   const tri=(t,m,dur,v)=>{keyHit(a,t,m);const o=osc('triangle',mtof(m),t),g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.16*v,t+.003);g.gain.setValueAtTime(.16*v,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+.01);o.connect(g);out(g,0,0);o.start(t);o.stop(t+dur+.03);};
-  /* synthwave: a detuned saw lead and a plucky arp, both into the echo */
-  const slead=(t,m,dur,v)=>{keyHit(a,t,m);const f=bq('lowpass',2400*bright,1.5),g=a.createGain();f.frequency.setValueAtTime(900,t);f.frequency.linearRampToValueAtTime(2600*bright,t+.08);
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.032*v,t+.012);g.gain.setValueAtTime(.028*v,t+Math.max(.02,dur));g.gain.linearRampToValueAtTime(0,t+dur+.18);f.connect(g);out(g,.08,.45,.4);
-    const lf=a.createOscillator(),lg=a.createGain();lf.frequency.value=5.2;lg.gain.setValueAtTime(0,t);lg.gain.linearRampToValueAtTime(dur>.4?9:0,t+.35);lf.connect(lg);lf.start(t);lf.stop(t+dur+.25);
-    for(const [ty,dt] of [['sawtooth',-9],['sawtooth',9],['square',0]]){const o=osc(ty,mtof(m),t);o.detune.setValueAtTime(dt,t);lg.connect(o.detune);const og=a.createGain();og.gain.value=ty==='square'?.5:1;o.connect(og).connect(f);o.start(t);o.stop(t+dur+.25);}};
-  const pluck=(t,m,v)=>{keyHit(a,t,m);const f=bq('lowpass',600,3),g=a.createGain();f.frequency.setValueAtTime(3200*bright,t);f.frequency.exponentialRampToValueAtTime(500,t+.18);
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.03*v,t+.004);g.gain.exponentialRampToValueAtTime(.0005,t+.3);f.connect(g);out(g,rnd(-.35,.35),.25,.45);
-    const o=osc('sawtooth',mtof(m),t);o.connect(f);o.start(t);o.stop(t+.32);};
   /* drums (to the drum bus, which the house pump leaves alone); with 8-bit keys the same patterns play on chip drums */
   const crunch=(()=>{const n=Math.round(a.sampleRate*.5),b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);let h=0;for(let i=0;i<n;i++){if(i%6===0)h=Math.random()<.5?-1:1;d[i]=h;}return b;})(); /* stepped noise, like an old sound chip */
   const cnoise=(t,fq,dec,lvl)=>{const s=a.createBufferSource();s.buffer=crunch;const f=bq('highpass',fq,.5),g=a.createGain();g.gain.setValueAtTime(lvl,t);g.gain.exponentialRampToValueAtTime(.0004,t+dec);s.connect(f).connect(g);out(g,0,.03,0,drumG);s.start(t,Math.random()*.4,dec+.02);};
@@ -501,16 +506,6 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
   const rim=(t,v)=>{logHit('sd',t);if(chip)return cnoise(t,2500,.02,.035*v);t=loose(t,-.004,.006);noise(t,'bandpass',2100,3,.001,.03,.05*v,.18,.15,drumG);const o=a.createOscillator(),g=a.createGain();o.frequency.value=440;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.03*v,t+.001);g.gain.exponentialRampToValueAtTime(.001,t+.045);o.connect(g);out(g,.18,.1,0,drumG);o.start(t);o.stop(t+.06);};
   const clap=(t,v)=>{logHit('sd',t);if(chip)return cnoise(t,1500,.09,.045*v);for(let i=0;i<3;i++)noise(t+i*.011,'bandpass',1150,1,.002,i<2?.012:.16,.045*v,-.05,.35,drumG);};
   const brush=(t,v,long)=>{logHit('hh',t);if(chip)return cnoise(t,3000,long?.12:.04,.02*v);noise(loose(t,-.01,.012),'bandpass',2800,.9,long?.07:.025,long?.32:.12,.026*v*rnd(.75,1.1),-.15,.3,drumG);};
-  /* trip-hop: a big dusty snare with the room in it, and the record's crackle */
-  const bigSnare=(t,v)=>{snare(t,v);if(chip)return;noise(t+.004,'bandpass',900,.7,.004,.42,.035*v,0,.75,drumG);};
-  const crackle=(t0)=>{const n=3+Math.floor(Math.random()*5);for(let i=0;i<n;i++){const t=t0+Math.random()*barDur;noise(t,'highpass',2500+Math.random()*4000,.6,.0005,.006+Math.random()*.01,(.006+Math.random()*.014),rnd(-.6,.6),0,drumG);}};
-  /* synthwave: a gated snare (a big room, then cut dead) and toms for the fills */
-  const gsnare=(t,v)=>{logHit('sd',t);const s1=a.createBufferSource();s1.buffer=white;const f=bq('bandpass',1700,.5),g=a.createGain();
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.075*v,t+.003);g.gain.setValueAtTime(.05*v,t+.03);g.gain.linearRampToValueAtTime(.042*v,t+.2);g.gain.linearRampToValueAtTime(0,t+.23);
-    s1.connect(f).connect(g);out(g,0,.5,0,drumG);s1.start(t,Math.random()*2,.3);
-    const o=a.createOscillator(),og=a.createGain();o.frequency.setValueAtTime(220,t);o.frequency.exponentialRampToValueAtTime(160,t+.08);og.gain.setValueAtTime(0,t);og.gain.linearRampToValueAtTime(.06*v,t+.002);og.gain.exponentialRampToValueAtTime(.001,t+.12);o.connect(og);out(og,0,.3,0,drumG);o.start(t);o.stop(t+.15);};
-  const tom=(t,fq,v)=>{logHit('sd',t);const o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(fq*1.6,t);o.frequency.exponentialRampToValueAtTime(fq,t+.06);
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.12*v,t+.003);g.gain.exponentialRampToValueAtTime(.001,t+.32);o.connect(g);out(g,(fq-140)/200,.45,0,drumG);o.start(t);o.stop(t+.35);};
   /* ---- harmony and melody ---- */
   const tonicNear=c=>kpc+12*Math.round((c-kpc)/12);
   const chordAt=bi=>{const p=((bi%32)+32)%32,pr=p>=16?progB:progA;return pr[Math.floor((p%16)/bpc)%pr.length];};
@@ -531,7 +526,7 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
     for(const dd of [-1,1,-2,2,-3,3])if(pcs.includes((((m+dd)%12)+12)%12))return m+dd;return m;};
   const st=(b0,i)=>b0+i*step+(i%2?swing*beat/2:0);
   /* the hook, played by the keys, and little phrases made from it in between */
-  const LEAD=KO?null:feel===5&&K===2?{c:72,play:(t,m,d,v)=>slead(t,m,d,v)}:[{c:74,play:(t,m,d,v)=>ep(t+.025,m,d,v*.62,.15,.6,.08)},{c:72,play:(t,m,d,v)=>string(t,m,.42*v,Math.max(d,step*2),'nyl')},{c:76,play:(t,m,d,v)=>glass(t,m,v)},{c:76,play:(t,m,d,v)=>{pulse(t,m,d*.92,v,.25,true,.1);pulse(t+3*step,m,d*.8,v*.32,.25,false,-.3);}}][K];
+  const LEAD=KO?null:[{c:74,play:(t,m,d,v)=>ep(t+.025,m,d,v*.62,.15,.6,.08)},{c:72,play:(t,m,d,v)=>string(t,m,.42*v,Math.max(d,step*2),'nyl')},{c:76,play:(t,m,d,v)=>glass(t,m,v)},{c:76,play:(t,m,d,v)=>{pulse(t,m,d*.92,v,.25,true,.1);pulse(t+3*step,m,d*.8,v*.32,.25,false,-.3);}}][K];
   const playNotes=(b0,bi,notes,vel)=>{for(const h of notes){const off=Math.floor(h.p/16),pp=h.p%16;let t=st(b0+off*barDur,pp);
       const ch=chordAt(bi+off),m=fit(degNote(h.d,LEAD.c),ch,pp%4===0);LEAD.play(t,m,Math.max(step,h.du*step*(chip?.9:1)),vel*rnd(.88,1.05));
       if(K===0&&h.du>=4&&Math.random()<.2)LEAD.play(t-step*.5,m-1,step*.4,vel*.5);}}; /* now and then a grace note from below */
@@ -539,7 +534,7 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
     const ns=hook.slice(s0,s0+k).map(h=>({p:((h.p%16)-(hook[s0].p%16)+choose([0,4,8])+sh+16)%16,d:h.d+tr,du:Math.min(h.du,4)})).filter(h=>h.p<15).sort((x,y)=>x.p-y.p);
     playNotes(b0,bi,ns,.8);};
   const improv=[.2,.35,.5][G]*(ambient?.35:1);let hookB=null,hookN=0;
-  const tStart=a.currentTime+.25;let bar=0,t=tStart,pumpDepth=D===3&&!chip?[.12,.18,.25][G]:D===5?[.06,.09,.12][G]:0;
+  const tStart=a.currentTime+.25;let bar=0,t=tStart,pumpDepth=D===3&&!chip?[.12,.18,.25][G]:0;
   function barSlot(b0){const bi=bar,p32=bi%32,ch=chordAt(bi),nx=chordAt(bi+1),bd=D>0&&bi>=24&&p32>=24&&p32<28,full=barDur;
     const fill=D>0&&!bd&&(p32===15||p32===31||p32===23)&&Math.random()<.8; /* a little fill going into the next section */
     /* ---- DRUMS ---- */
@@ -553,17 +548,6 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
         snare(st(b0,4),G===0?.55:.8);snare(st(b0,12),G===0?.6:.85);if(G>0&&Math.random()<.3)snare(st(b0,choose([7,15])),.2);
         const hs=G===0?4:G===1?2:1;for(let i=0;i<16;i+=hs)hat(st(b0,i),(i%4===0?1:.6)*(G===0?.5:.8));
         if(fill){snare(st(b0,14),.45);snare(st(b0,15),.6);}}
-      else if(D===4){ /* trip-hop: a slow, heavy break on a dusty record */
-        kick(st(b0,0),1);if(Math.random()<.7)kick(st(b0,3),.45);kick(st(b0,10),.85);if(G>=1&&Math.random()<.5)kick(st(b0,11),.5);if(G===2)kick(st(b0,7),.5);
-        bigSnare(st(b0,4),.95);bigSnare(st(b0,12),1);if(Math.random()<.35)snare(st(b0,choose([7,9,15])),.16);
-        for(let i=0;i<16;i+=2)hat(st(b0,i),(i%4===0?.75:.45)*(G===0?.7:1),i===14&&Math.random()<.4);if(G===2)for(let i=1;i<16;i+=4)hat(st(b0,i),.25);
-        if(!chip)crackle(b0);
-        if(fill){snare(st(b0,13),.3);bigSnare(st(b0,15),.55);}}
-      else if(D===5){ /* synthwave: kick on one and three, a gated snare on two and four, eighth hats */
-        hkick(st(b0,0),1);hkick(st(b0,8),.95);if(G>=1&&Math.random()<.5)hkick(st(b0,10),.55);if(G===2){hkick(st(b0,4),.7);hkick(st(b0,12),.7);}
-        gsnare(st(b0,4),.9);if(!fill)gsnare(st(b0,12),1);
-        for(let i=0;i<16;i+=G===2?1:2)hat(st(b0,i),i%4===2?.5:i%2?.25:.32);
-        if(fill)[[12,200],[13,165],[14,135],[15,110]].forEach(([i,f])=>tom(st(b0,i),f,.85));}
       else{ /* house: four on the floor, claps, offbeat open hats, a shaker */
         for(const i of [0,4,8,12])hkick(st(b0,i),G===0?.85:1);if(G===0){rim(st(b0,4),.55);rim(st(b0,12),.6);}else{clap(st(b0,4),[.4,.55,.65][G]);clap(st(b0,12),[.45,.6,.7][G]);}
         for(const i of [2,6,10,14])hat(st(b0,i),[.25,.35,.4][G],true);if(G>=1)for(let i=0;i<16;i++)if(G===2?i%4!==2:true)(G===2?hat:shaker)(st(b0,i),i%2?.4:.65);
@@ -576,7 +560,6 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
       let pat;
       if(feel===0)pat=G===2?[[0,r,7],[8,r5,7]]:[[0,r,15*bpc]];
       else if(feel===2){pat=[[0,r,G===0?10:6]];if(G>=1&&Math.random()<.75)pat.push([10,choose([r,r5,r+12]),4]);if(G===2){if(Math.random()<.5)pat.push([7,r,2]);pat.push([14,nr+choose([-1,2,0]),2]);}}
-      else if(feel===5)pat=G===0?[[0,r,3.5],[4,r,3.5],[8,r,3.5],[12,r5,3.5]]:[0,2,4,6,8,10,12,14].map(i=>[i,i===14&&nr!==r?nr:(i%8===6&&G===2)?r+12:r,1.7]); /* synthwave: the driving eighths */
       else pat=[[[2,r,5],[10,r,5]],[[2,r,2.2],[6,r+12,1.5],[10,r,2.2],[13,r,1.5]],[[2,r,1],[3,r+12,.9],[6,r,1.5],[10,r,1],[11,r+12,.9],[14,choose([r+7,r+10]),1.5]]][G];
       if(feel===0&&bpc===2&&bi%2)pat=[];
       for(const [i,m,len] of pat)play(i,m,len,1);}
@@ -595,8 +578,7 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
       else{const ns=voice('g',ch,48,72,false),seq=ns.concat(ns.slice(1,-1).reverse());const every=G===0?4:2;for(let i=0,k=0;i<16;i+=every,k++)string(st(b0,i),seq[k%seq.length],.26+.06*Math.random(),step*every*2,'nyl');if(feel===2)strum(0,ch,step*3,.6);}} /* fingerpicking */
     else if(K===2){ /* pad */
       if(bi%bpc===0){pad(b0,voice('pd',ch,48,67),full*bpc,D>0?.7:1,D>0?.6:3.5,M===0?'triangle':'sawtooth');if(ambient)drone(b0,rootOf(ch,31,43),full*bpc,1);}
-      if(feel===5){const tr=voice('ar',ch,57,72),seq=tr.concat([tr[0]+12,tr[1]+12]);const every=G===0?4:G===1?2:1;for(let i=0,k=0;i<16;i+=every,k++)pluck(st(b0,i),seq[k%seq.length],i%4===0?1:.7);}
-      const ns=voice('gl',ch,67,84),n=feel===5?0:ambient?[1,1,2][G]:G;for(let k=0;k<n;k++)if(Math.random()<(ambient?.6:.35))glass(st(b0,choose([0,4,8,12])+k*2),choose(ns),rnd(.35,.6));
+      const ns=voice('gl',ch,67,84),n=ambient?[1,1,2][G]:G;for(let k=0;k<n;k++)if(Math.random()<(ambient?.6:.35))glass(st(b0,choose([0,4,8,12])+k*2),choose(ns),rnd(.35,.6));
       if(ambient&&Math.random()<.1)mallet(st(b0,choose([2,6,10])),choose(ns)+12,.35,3,1.2,.4);}
     else{ /* 8-bit arpeggios */
       const tr=voice('ar',ch,60,76),seq=tr.concat([tr[0]+12]);const ar=G===0||feel===0?2:1;
@@ -615,7 +597,7 @@ function band(a,dest,tp0,opt){opt=opt||{};const tp=cleanTape(tp0||{})||cleanTape
     bar++;}
   return {src:srcs,ahead:2.2,hits,bpm,beat,step,barDur,tStart,tick(until){for(const l of layers)l.tick&&l.tick(until);if(t<a.currentTime)t=a.currentTime+.05; /* after a stall, pick up from now rather than playing the missed bars at once */while(t<until){barSlot(t);t+=barDur;}},
     update(){}};}
-window.loafBand=band;window.loafSounds=SOUNDS; /* lets the tests render a tape offline */
+window.catnipBand=band;window.catnipSounds=SOUNDS; /* lets the tests render a tape offline */
 
 function genStart(id,fade){const was=gen&&gen.id;genStop(true);const a=ensureAudio();const master=a.createGain();master.gain.value=0;const an=a.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.5;
   master.connect(an);an.connect(a.destination);const g={id,master,an,src:[],timers:[]};
@@ -658,14 +640,14 @@ let boardTextLast='';function boardText(now){const el=document.getElementById('b
    lines dropping in one after another, for about five seconds; then back to the clock. Not for the calm sounds, not while
    you're mixing (every tap would re-show it), and not on a re-cut of the same tape. In broadcast mode it comes back every
    eight minutes, so someone who joins a long video halfway still sees what's on. */
-const ALBUM={'gen:nine':'BETWEEN LEVELS','gen:late':'AFTER HOURS','gen:crt':'UP ON THE ROOF'};let credit=null;const CREDIT_PAGE=3.6;
+const ALBUM={'gen:nine':'BETWEEN LEVELS','gen:late':'AFTER HOURS','gen:crt':'UP ON THE ROOF'};const albumOf=id=>id==='gen:today'?todayLabel():ALBUM[id]||'CATNIP FM';let credit=null;const CREDIT_PAGE=3.6;
 /* a page is a list of [text, look]: 'q' big in quotes, 'big', 'lab' label colour, 'dim', 'acc' accent */
 function creditPages(id){const tp=tapeOf(id);
   if(tp){const by=((BC&&BC.by)||tp.by||(!BC&&tp!==draft&&S.by)||'Loafie').toUpperCase(),t=shownTape(tp);
-    const pg=[[[t.n,'big'],[(t.f/10).toFixed(1)+' FM','lab'],[tapeRecipe(t).toUpperCase(),'dim'],['MIXED BY '+by,'acc']]];
+    const pg=[tp.from?[[t.n,'big'],[tapeRecipe(t).toUpperCase(),'dim'],['MIXED BY '+by,'acc'],['REMIXED FROM '+tp.from.toUpperCase(),'lab']]:[[t.n,'big'],[(t.f/10).toFixed(1)+' FM','lab'],[tapeRecipe(t).toUpperCase(),'dim'],['MIXED BY '+by,'acc']]];
     if(BC)pg.push([['MAKE YOURS AT','lab'],['catnipfm.com','big']]); /* on the stream: where to make one */
     return pg;}
-  const st=MUSIC.find(m=>m.id===id);return st?[[['LOAFIE','lab'],[st.name,'q'],[ALBUM[id]||'CATNIP FM','dim'],['CATNIP FM RECORDS','acc']]]:null;}
+  if(id==='gen:dead')return [[['','lab'],['DEAD AIR','big'],['83.3 FM','dim'],['','acc']]];const st=MUSIC.find(m=>m.id===id);return st?[[['LOAFIE','lab'],[st.name,'q'],[albumOf(id),'dim'],['CATNIP FM RECORDS','acc']]]:null;}
 function showCredit(id){if(CALM.some(c=>c.id===id)||document.querySelector('.mixtape.building'))return;const pages=creditPages(id);if(!pages)return;
   const d=(tuning?tuning.dur:0)+400,n=performance.now();credit={id,pages,from:n+d,until:n+d+pages.length*CREDIT_PAGE*1000};dirty=true;}
 function drawCredit(P,el){const pi=Math.min(credit.pages.length-1,Math.floor(el/(CREDIT_PAGE*1000))),L=credit.pages[pi],e=el-pi*CREDIT_PAGE*1000,x=3;
@@ -739,9 +721,9 @@ function draw(t,now){fb.fill(-1);const P=pal();
   if(on&&!twoLines)meter(t,P,x0,area,eqH);
 }
 /* ================= the city =================
-   One place behind the whole board, clock and desk alike: a city at night drawn in the palette's own colour, in
+   One place behind the whole board, clock and rooftop alike: a city at night drawn in the palette's own colour, in
    two depths like a lofi poster (a far skyline, and nearer buildings at either end), with lit windows that come and
-   go and a red light blinking on the tall tower. Loafie's desk is the ledge in front of it. It's kept dim so the
+   go and a red light blinking on the tall tower. Loafie's ledge is in front of it. It's kept dim so the
    clock and the track stay easy to read. Rain is the only weather, and it falls over all of it. */
 const hsh=n=>{n=Math.sin(n*127.1)*43758.5453;return n-Math.floor(n);};
 const CITY_H=50,CITY=new Uint8Array(W*CITY_H),CITY_WIN=new Int32Array(W*CITY_H).fill(-1); /* kind per cell: 1 far, 2 near, 3 roof edge, 4 antenna light, 5 far window, 6 near window */
@@ -759,11 +741,11 @@ const CITY_H=50,CITY=new Uint8Array(W*CITY_H),CITY_WIN=new Int32Array(W*CITY_H).
   for(let x=106;x<113;x++)for(let y=19;y<24;y++)set(x,y,(y===19||x===106||x===112)?3:2);for(let y=17;y<19;y++)set(109,y,3);
   for(let wy=27;wy<44;wy+=4)for(let wx=101;wx<W-1;wx+=5){const id=wid++;for(let a=0;a<2;a++)for(let b=0;b<2;b++){set(wx+a,wy+b,6);CITY_WIN[(wy+b)*W+wx+a]=id;}}
   for(let wy=36;wy<44;wy+=4)for(let wx=3;wx<22;wx+=5){const id=wid++;for(let a=0;a<2;a++){set(wx+a,wy,6);CITY_WIN[wy*W+wx+a]=id;}}})();
-function raining(now){if(SKY_FORCE)return SKY_FORCE==='rain';if(gen){const tp=tapeOf(gen.id);if(tp)return tp.w===1;return gen.id==='gen:rain';}return dayRand(now)<.18;} /* rain on the rain stations and rainy tapes; with nothing playing, about one day in six */
+function raining(now){if(SKY_FORCE)return true;if(gen){const tp=tapeOf(gen.id);if(tp)return tp.w===1;return gen.id==='gen:rain';}return dayRand(now)<.18;} /* rain on the rain stations and rainy tapes; with nothing playing, about one day in six */
 /* draw city rows y0..y1 (global) into a buffer starting at row `off` */
 function drawCity(buf,y0,y1,t,P,now){const night=isNight(now),frac=night?.5:.3,base=P.PEG?0xb8a68a:P.MID,far=dim(base,.24),near=dim(base,.4),edge=dim(base,.62),wf=dim(P.S2,.55),wn=dim(P.S2,.75),wd=dim(base,.3); /* on 808 the city is putty-grey, like the case; elsewhere it's the palette's own colour */
   for(let y=y0;y<y1;y++)for(let x=0;x<W;x++){const k=CITY[y*W+x];if(!k)continue;let c;
-    if(k===1)c=far;else if(k===2)c=near;else if(k===3)c=edge;else if(k===4)c=t%2.4<.3?0xe8392b:dim(0xe8392b,.3);
+    if(k===1)c=far;else if(k===2)c=near;else if(k===3)c=edge;else if(k===4)c=towerOn(t)?0xe8392b:dim(0xe8392b,.3);
     else{const id=CITY_WIN[y*W+x],ph=Math.floor((t+hsh(id+.5)*90)/90);c=hsh(id*1.7+ph*13.1)<frac?(k===5?wf:wn):(k===5?far:wd);} /* windows come on and go off now and then */
     buf[(y-y0)*W+x]=c;}
   if(lateShow(now)){if(lateOn<0)lateOn=t;const e=cityEdge(),reach=(t-lateOn)*70,run=(t*22)%(W+40)-20; /* traced in at 70 dots a second, then a light runs along */
@@ -784,9 +766,7 @@ function meter(t,P,x0,area,eqH){const b=vu(t);const pitch=area>=90?6:4,bw=pitch-
 /* ================= Renderer ================= */
 const win=document.getElementById('window'),bgC=document.getElementById('bg'),ledC=document.getElementById('led'),unit=document.getElementById('unit'),face=document.getElementById('face');
 const bg=bgC.getContext('2d'),ctx=ledC.getContext('2d');
-const GH=18,gameWin=document.getElementById('gameWin'),gbgC=document.getElementById('gbg'),gledC=document.getElementById('gled'),gbg=gbgC.getContext('2d'),gctx=gledC.getContext('2d');let pitch=1;const sprites=new Map(),gsprites=new Map();let SPR=sprites,ZOOM=1,gpitch=1,camX=0,petHint=null;
-/* on a phone the desk zooms in: twice the size, with a camera that follows her; drawing it swaps in the desk's own scale */
-function withGame(fn){const p=pitch,s0=SPR;pitch=gpitch;SPR=gsprites;try{fn();}finally{pitch=p;SPR=s0;}}const DOT=.36,GLOW=.6;
+const GH=18,gameWin=document.getElementById('gameWin'),gbgC=document.getElementById('gbg'),gledC=document.getElementById('gled'),gbg=gbgC.getContext('2d'),gctx=gledC.getContext('2d');let pitch=1;const sprites=new Map();let petHint=null;const DOT=.36,GLOW=.6; /* one board, one dot size: the clock and the rooftop share a pitch and a sprite cache */
 function fitUnit(){if(BC&&document.documentElement.classList.contains('vertical')){unit.style.width=Math.round(innerWidth*.92)+'px';return;}if(BC){const rows=H+GH+2,pad=parseFloat(getComputedStyle(unit).paddingTop)||16;unit.style.width=Math.max(288,Math.min(innerWidth*.88,(innerHeight*.86-pad*2-8)*(W/rows)+pad*2))+'px';return;}const top=document.querySelector('.top');const topH=top&&top.offsetParent!==null?top.offsetHeight:16;const pad=parseFloat(getComputedStyle(unit).paddingTop)||16,gap=parseFloat(getComputedStyle(face).marginTop)||16;const availH=Math.min(window.innerHeight-topH-16,window.innerHeight*.66),availW=document.documentElement.clientWidth-2*16;const chrome=pad*2+face.offsetHeight+gap+8;const rows=H+GH+2;unit.style.width=Math.max(288,Math.min(availW,1200,(availH-chrome)*(W/rows)+28))+'px';}
 const isPeg=()=>!!(PALETTES[S.palette]||{}).peg;
 const PV=new Float32Array(W*(H+GH)).map(()=>.8+Math.random()*.2); /* pegs pushed in to slightly different depths */
@@ -794,22 +774,19 @@ function dots(g,cv,rows){const cw=cv.width,peg=isPeg();g.fillStyle=peg?'#000':'#
   for(let y=0;y<rows;y++)for(let x=0;x<W;x++){g.beginPath();g.arc((x+.5)*pitch,(y+.5)*pitch,r,0,Math.PI*2);g.fill();}}
 function layout(){fitUnit();const dpr=Math.min(window.devicePixelRatio||1,2);const cw=Math.round(win.clientWidth*dpr);pitch=cw/W;const ch=Math.round(pitch*H);
   bgC.width=ledC.width=cw;bgC.height=ledC.height=ch;sprites.clear();dots(bg,bgC,H);
-  ZOOM=1; /* one board, one dot size, phones too (the camera code stays for a zoomed desk, but it's off) */gpitch=pitch*ZOOM;gsprites.clear();gameWin.classList.toggle('zoom',ZOOM>1);
-  gbgC.width=gledC.width=Math.round(W*gpitch);gbgC.height=gledC.height=Math.round(gpitch*GH);withGame(()=>dots(gbg,gbgC,GH));camMove(true);}
-function camMove(snap){const view=W/ZOOM;if(petHint&&!petHint.hidden)petHint.style.left=((cat.x+7-camX)/view*100).toFixed(1)+'%';
-  if(ZOOM<2){if(camX){camX=0;gbgC.style.transform=gledC.style.transform='';}return;}const want=clamp(cat.x+7-view/2,0,W-view);
-  const nx=snap?want:camX+(want-camX)*.06;if(Math.abs(nx-camX)<.01&&!snap)return;camX=nx;const tf='translateX('+(-camX/W*100).toFixed(3)+'%)';gbgC.style.transform=gledC.style.transform=tf;}
-function sprite(c){let sp=SPR.get(c);if(sp)return sp;if(SPR.size>600)SPR.clear();if(isPeg())return pegSprite(c);
+  gbgC.width=gledC.width=cw;gbgC.height=gledC.height=Math.round(pitch*GH);dots(gbg,gbgC,GH);placeHint();}
+function placeHint(){if(petHint&&!petHint.hidden)petHint.style.left=((cat.x+7)/W*100).toFixed(1)+'%';} /* the Pet Loafie bubble follows her along the ledge */
+function sprite(c){let sp=sprites.get(c);if(sp)return sp;if(sprites.size>600)sprites.clear();if(isPeg())return pegSprite(c);
   const size=Math.ceil(pitch*2.6);const cv=document.createElement('canvas');cv.width=cv.height=size;const g=cv.getContext('2d');const r=R(c),gg=G(c),b=B(c),half=size/2;
   const grad=g.createRadialGradient(half,half,0,half,half,half);grad.addColorStop(0,`rgba(${r},${gg},${b},${.6*GLOW})`);grad.addColorStop(.35,`rgba(${r},${gg},${b},${.22*GLOW})`);grad.addColorStop(1,`rgba(${r},${gg},${b},0)`);
   g.fillStyle=grad;g.fillRect(0,0,size,size);g.globalCompositeOperation='lighter';const dr=pitch*DOT;g.fillStyle=`rgb(${r},${gg},${b})`;g.beginPath();g.arc(half,half,dr,0,Math.PI*2);g.fill();
-  {const lum=(.3*r+.59*gg+.11*b)/255;g.fillStyle=`rgba(255,255,255,${(.08+.2*lum).toFixed(3)})`;}g.beginPath();g.arc(half,half,dr*.45,0,Math.PI*2);g.fill();sp={cv,off:half};SPR.set(c,sp);return sp;}
+  {const lum=(.3*r+.59*gg+.11*b)/255;g.fillStyle=`rgba(255,255,255,${(.08+.2*lum).toFixed(3)})`;}g.beginPath();g.arc(half,half,dr*.45,0,Math.PI*2);g.fill();sp={cv,off:half};sprites.set(c,sp);return sp;}
 /* a plastic peg: a round translucent cap, brighter at the top-left where the light catches it */
 function pegSprite(c){const size=Math.ceil(pitch*2.4);const cv=document.createElement('canvas');cv.width=cv.height=size;const g=cv.getContext('2d');const r=R(c),gg=G(c),b=B(c),half=size/2,dr=pitch*.43;
   const glow=g.createRadialGradient(half,half,0,half,half,half);glow.addColorStop(0,`rgba(${r},${gg},${b},.46)`);glow.addColorStop(.4,`rgba(${r},${gg},${b},.13)`);glow.addColorStop(1,`rgba(${r},${gg},${b},0)`);g.fillStyle=glow;g.fillRect(0,0,size,size);
   const cap=g.createRadialGradient(half-dr*.35,half-dr*.35,dr*.1,half,half,dr);const lum=(.3*r+.59*gg+.11*b)/255,lift=Math.round(35+55*lum);cap.addColorStop(0,`rgb(${Math.min(255,r+lift)},${Math.min(255,gg+lift)},${Math.min(255,b+lift)})`);cap.addColorStop(.55,`rgb(${r},${gg},${b})`);cap.addColorStop(1,`rgb(${Math.round(r*.7)},${Math.round(gg*.7)},${Math.round(b*.7)})`);
   g.fillStyle=cap;g.beginPath();g.arc(half,half,dr,0,Math.PI*2);g.fill();g.fillStyle=`rgba(255,255,255,${(.16+.42*lum).toFixed(3)})`;g.beginPath();g.arc(half-dr*.38,half-dr*.4,dr*.2,0,Math.PI*2);g.fill(); /* every bulb catches a little light (the nostalgic glint); brighter ones catch more, so dark dots don't go milky */
-  const sp={cv,off:half};SPR.set(c,sp);return sp;}
+  const sp={cv,off:half};sprites.set(c,sp);return sp;}
 function present(alpha,g=ctx,buf=fb,rows=H,base=0){g.clearRect(0,0,g.canvas.width,g.canvas.height);const a=clamp(alpha,0,1);g.globalAlpha=a;const peg=isPeg();
   for(let y=0;y<rows;y++)for(let x=0;x<W;x++){const c=buf[y*W+x];if(c<0)continue;const k=base+y*W+x;g.globalAlpha=a*(peg?PV[k]:.86+(PV[k]-.8)*.7); /* no two lights quite the same brightness: pegs vary more, LEDs a little */const sp=sprite(c);g.drawImage(sp.cv,(x+.5)*pitch-sp.off,(y+.5)*pitch-sp.off);}g.globalAlpha=1;}
 /* now and then a peg is the wrong colour, or one has wandered off on its own: it changes every few minutes */
@@ -821,7 +798,7 @@ const t0=performance.now();
 function frame(){const t=(performance.now()-t0)/1000;const now=NOW();
   draw(t,now);boardText(now);const P0=pal();oops(P0);let alpha=nightDim(now)*(RM.matches?1:.97+Math.random()*.03)*(cat.nap?.6:1); /* Z: the lights go down while she naps */if(!RM.matches&&Math.random()<.003)alpha*=.8;{const fl=pal().floor;if(alpha<fl)alpha=fl;}
   const warm=clamp(t/1.2,0,1);if(warm<1&&!P0.PEG)alpha*=warm*(.6+.4*Math.random());present(alpha); /* a short warm-up flicker on load (the pegboard just appears) */
-  drawGame(t);withGame(()=>present(alpha,gctx,gfb,GH,W*H));camMove(false);
+  drawGame(t);present(alpha,gctx,gfb,GH,W*H);placeHint();
   if(vidPip.ready)vidFrame();}
 /* the loop runs on whichever window is showing the board, so it keeps going while she floats */
 let host=window,loopGen=0;
@@ -853,8 +830,8 @@ function fillStations(){stationEl.innerHTML='';{const og=document.createElement(
   if(!S.station){const o=document.createElement('option');o.value='';o.textContent='Pick a sound';stationEl.insertBefore(o,stationEl.firstChild);}
   stationEl.value=S.station||'';if(window.__dialReady)paintDial();}
 if(!PALETTES[S.palette])S.palette='pegs';
-if(!CALM.some(s=>s.id===S.station)&&!MUSIC.some(s=>s.id===S.station)&&!(tapeOf(S.station)&&!BC)&&!(BC&&tapeOf(S.station))){S.station='gen:purr';S.stationName='Purr';} /* a radio station saved before live radio was dropped */
-delete S.stationUrl;{const m=[...MUSIC,...CALM].find(x=>x.id===S.station);if(m)S.stationName=m.name;} /* a renamed station (CRT Dreams → Rooftop) shows its new name straight away */
+if(!CALM.some(s=>s.id===S.station)&&!MUSIC.some(s=>s.id===S.station)&&!HIDDEN.some(s=>s.id===S.station)&&!(tapeOf(S.station)&&!BC)&&!(BC&&tapeOf(S.station))){S.station='gen:nine';S.stationName='Nine Lives';} /* a saved station that no longer exists: back to the first one on the dial */
+delete S.stationUrl;{const m=[...MUSIC,...CALM,...HIDDEN].find(x=>x.id===S.station);if(m)S.stationName=m.name;} /* a renamed station (CRT Dreams → Rooftop) shows its new name straight away */
 fillStations();
 stationEl.addEventListener('change',()=>{const v=stationEl.value;
   const tp=tapeOf(v);const s=CALM.find(x=>x.id===v)||MUSIC.find(x=>x.id===v)||(tp&&{id:v,name:tp.n});if(s)setStation(s);else stationEl.value=S.station||'';});
@@ -864,16 +841,18 @@ stationEl.addEventListener('change',()=>{const v=stationEl.value;
    brown noise) and TAPES (your mixtapes, with a count, so they're never hidden). The real <select> stays for
    keyboard and screen-reader users. */
 const BANDS=[{k:'focus',name:'FOCUS'},{k:'calm',name:'CALM'},{k:'tapes',name:'TAPES'}];
-function bandOf(id){return MUSIC.some(m=>m.id===id)?'focus':CALM.some(c=>c.id===id)?'calm':'tapes';}
+function bandOf(id){return MUSIC.some(m=>m.id===id)||id==='gen:dead'?'focus':CALM.some(c=>c.id===id)?'calm':'tapes';}
 function bandList(k){if(k==='focus')return MUSIC.map(m=>({id:m.id,name:m.name}));if(k==='calm')return CALM.map(c=>({id:c.id,name:c.name}));
   const out=S.tapes.map(tp=>({id:'tape:'+tp.id,name:tp.n}));if(draft)out.push({id:'tape:draft',name:shownTape(draft).n+' (not saved)'});return out;}
 const lastIn={};
 function paintDial(){const band=bandOf(S.station),list=bandList(band),i=list.findIndex(x=>x.id===S.station);lastIn[band]=S.station;
-  $('tuneBand').textContent=BANDS.find(b=>b.k===band).name+(list.length>1?' · '+(i+1)+'/'+list.length:'');
+  $('tuneBand').textContent=S.station==='gen:dead'?'— · —':BANDS.find(b=>b.k===band).name+(list.length>1?' · '+(i+1)+'/'+list.length:'');
   $('tuneFreq').textContent=freqOf(S.station);$('tuneName').textContent=(list[i]&&list[i].name)||stationName();
   document.querySelectorAll('.bandkey').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.band===band));if(b.dataset.band==='tapes')b.querySelector('em').textContent=bandList('tapes').length||'+';});}
-function dialTune(id){if(id===S.station)return;const tp=tapeOf(id);const st=CALM.find(x=>x.id===id)||MUSIC.find(x=>x.id===id)||(tp&&{id,name:tp.n});if(st)setStation(st);}
-function dialStep(d){const list=bandList(bandOf(S.station));const i=list.findIndex(x=>x.id===S.station);const n=list[(i+d+list.length)%list.length];if(n)dialTune(n.id);}
+function dialTune(id){if(id===S.station)return;const tp=tapeOf(id);const st=CALM.find(x=>x.id===id)||MUSIC.find(x=>x.id===id)||HIDDEN.find(x=>x.id===id)||(tp&&{id,name:tp.n});if(st)setStation(st);}
+function dialStep(d){const list=bandList(bandOf(S.station));const i=list.findIndex(x=>x.id===S.station);
+  if(S.station==='gen:dead'){if(d>0)dialTune(list[0].id);return;}if(bandOf(S.station)==='focus'&&i===0&&d<0){dialTune('gen:dead');return;} /* below the bottom of the dial there's something */
+  const n=list[(i+d+list.length)%list.length];if(n)dialTune(n.id);}
 $('dialPrev').addEventListener('click',()=>dialStep(-1));$('dialNext').addEventListener('click',()=>dialStep(1));
 document.querySelectorAll('.bandkey').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.band,list=bandList(k);
   if(!list.length){openMixtape();return;} /* no tapes yet: TAPES makes one */
@@ -886,8 +865,6 @@ window.__dialReady=true;paintDial();
    running music; a new starting station or weather re-cuts the tape with a short fade. A new tape is a draft until
    saved; a saved tape saves as you go. Copy link puts the whole recipe in the address. */
 let mtTape=null,mtPhase=0,mtSpin=null;
-const FACE=['..##......##..','..#p#....#p#..','..##########..','.#####hh#####.','#############s','####o#####o##s','####o#####o##s','######hmh####s'];
-const REEL=[[1,0],[2,0],[3,1],[3,2],[2,3],[1,3],[0,2],[0,1]];
 function cassettePix(tp,phase){ /* a flat pixel-art cassette; Loafie glows in the window like a little LED screen */
   const W2=56,H2=33,cells=[];const P=(x,y,v)=>{if(x>=0&&y>=0&&x<W2&&y<H2)cells[y*W2+x]=v;};const Rr=(x,y,w,h,v)=>{for(let j=0;j<h;j++)for(let i=0;i<w;i++)P(x+i,y+j,v);};
   const sh=SHELLS[tp.c]||SHELLS[0],K='#1d1c21',S1=sh.sh,S2=sh.hi,LP=sh.strip,SC=sh.clear?sh.hi:'#a8a49a',lab=sh.lab;
@@ -921,33 +898,34 @@ function cassetteSVG(tp,phase){const {W2,H2,cells,dots,K}=cassettePix(tp,phase);
   const sh=SHELLS[tp.c]||SHELLS[0],tx=(x,y,sz,t,anc,fill)=>`<text x="${x}" y="${y}" text-anchor="${anc||'middle'}" font-family="Doto,monospace" font-weight="900" font-size="${sz}" fill="${fill||K}">${t}</text>`;let deco='';
   if(sh.art&&nm.length<=14){if(sh.side)deco+=`<rect x="6.3" y="5.2" width="3.4" height="3.6" fill="none" stroke="${sh.acc}" stroke-width=".45"/>`+tx(8,8.2,2.9,sh.side,'middle',sh.acc);if(sh.len)deco+=tx(49.6,8.4,3.4,sh.len,'end',sh.acc);}
   if(sh.art){deco+=tx(10,22.6,1.45,sh.art==='sound'?'SOUND':'SIDE 1','middle',sh.art==='split'?'#ffffff':K)+tx(45.5,22.6,1.45,'STEREO','middle',sh.art==='split'?'#ffffff':K);}
+  deco+=tx(4.4,32.3,1.3,'CN-'+String((tp.r||tp.f*37)%100000).padStart(5,'0'),'start',sh.clear?sh.hi:'#a8a49a'); /* a serial number from the seed: the same tape always gets the same one; meaningless, like the best ones */
   return `<svg viewBox="0 0 ${W2} ${H2}" aria-hidden="true"><g shape-rendering="crispEdges">${o}</g><g>${led}</g>${tx(28,8.6,nm.length>16?3.1:3.8,nm)}${deco}</svg>`;}
 const mt=document.createElement('section');mt.className='mixtape';mt.id='mixtape';mt.hidden=true;mt.setAttribute('aria-label','Mixtape');
 /* Under the radio: the tape deck. Normally it shows what's on as a big cassette (a station gets its own cassette,
-   your tape its own), reels turning while it plays, with what you can do with it. MAKE A MIXTAPE slides the
+   your tape its own), reels turning while it plays, with what you can do with it. REMIX (one word for it everywhere) slides the
    cassette into the deck: START WITH picks the groove (drums, tempo, feel); BASS, KEYS and OUTSIDE are the layers
    (lit = playing, unlit = available, tap a lit one to take it out). SAVE TAPE names it and pops it back out. */
-const ROWS=[{k:'b',name:'Bass',opts:[[1,'Warm'],[2,'Deep'],[3,'Synth']]},{k:'k',name:'Keys',opts:[[1,'Rhodes'],[3,'Pad'],[4,'8-bit']],extra:[[2,'Guitar']]},{k:'w',name:'Outside',opts:[[1,'Rain'],[4,'Purr'],[3,'Fire']],extra:[[2,'Ocean']]}];
+const ROWS=[{k:'p',name:'Speed',opts:[[0,'Slow'],[1,'Easy'],[2,'Fast']],fixed:true},{k:'b',name:'Bass',opts:[[1,'Warm'],[2,'Deep'],[3,'Synth']]},{k:'k',name:'Keys',opts:[[1,'Rhodes'],[2,'Guitar'],[3,'Pad'],[4,'8-bit']]},{k:'w',name:'Outside',opts:[[1,'Rain'],[4,'Purr'],[3,'Fire']],extra:[[2,'Ocean']]}];
 /* each station has its own cassette and a line about it */
-const STATION_TAPE={'gen:late':[1,'Warm Rhodes and a lazy beat. Built for working late.'],'gen:crt':[8,'House drums, synth bass and a soft pad. The upbeat one.'],'gen:nine':[9,'8-bit, between levels. Blow on the cartridge first.'],
+const STATION_TAPE={'gen:late':[1,'Warm Rhodes and a lazy beat. Built for working late.'],'gen:crt':[8,'House drums, synth bass and a soft pad. The upbeat one.'],'gen:today':[12,'TODAY'],'gen:dead':[6,''],'gen:nine':[9,'8-bit, between levels. Blow on the cartridge first.'],
   'gen:purr':[3,'Just Loafie, purring.'],'gen:rain':[2,'Rain on the window. Nothing else.'],'gen:waves':[2,'Slow waves on a quiet beach.'],'gen:fire':[4,'A low fire, crackling now and then.'],'gen:brown':[6,'Brown noise. Soft, steady, nothing to notice.']};
-mt.innerHTML=`<header class="mt-head"><span class="mt-print mt-where"></span><button class="icon mt-x" type="button" aria-label="Done mixing" title="Done mixing">✕</button></header>
+mt.innerHTML=`<header class="mt-head"><span class="mt-print mt-where"></span><span class="mt-print mt-legend" aria-hidden="true">RHYTHM COMPOSER</span><button class="icon mt-x" type="button" aria-label="Done mixing" title="Done mixing">✕</button></header>
 <div class="mt-now"><div class="mt-left"><button type="button" class="mt-big"></button></div><div class="mt-info">
 <p class="mt-title"></p><p class="mt-freq"></p><p class="mt-recipe"></p>
 <div class="mt-renamebox" hidden><input type="text" class="mt-name" maxlength="24" autocomplete="off" spellcheck="false" aria-label="Tape name"><button type="button" class="hw mt-renamedone">OK</button></div>
-<div class="mt-acts"><button class="hw mt-play" type="button">PLAY</button><button class="hw mt-make" type="button">MAKE A MIXTAPE</button><button class="hw mt-savedraft" type="button">SAVE TAPE</button><button class="hw mt-keepmixing" type="button">KEEP MIXING</button><button class="hw mt-share" type="button">SHARE</button><button class="hw mt-rename" type="button">RENAME</button><button class="hw mt-edit" type="button">REMIX</button><button class="hw mt-keep" type="button">KEEP THIS TAPE</button></div>
+<div class="mt-acts"><button class="hw mt-play" type="button">PLAY</button><button class="hw mt-make" type="button">REMIX</button><button class="hw mt-savedraft" type="button">SAVE TAPE</button><button class="hw mt-keepmixing" type="button">REMIX</button><button class="hw mt-share" type="button">SHARE</button><button class="hw mt-rename" type="button">RENAME</button><button class="hw mt-edit" type="button">REMIX</button><button class="hw mt-keep" type="button">KEEP THIS TAPE</button><button class="hw mt-new" type="button">NEW TAPE</button><button class="hw mt-post" type="button">COPY REDDIT POST</button></div>
 <label class="mt-from" hidden><span class="mt-print">FROM (OPTIONAL)</span><input type="text" class="mt-fromname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="u/yourname" aria-label="Your name on the tapes you share (optional)"></label>
 <p class="mt-hint"></p><p class="mt-note2" aria-live="polite"></p>
-<p class="mt-links"><button type="button" class="mt-lk mt-again">Make your own</button><button type="button" class="mt-lk mt-card">Save as picture</button><button type="button" class="mt-lk mt-del">Delete tape</button></p></div></div>
+<p class="mt-links"><button type="button" class="mt-lk mt-card">Save as picture</button><button type="button" class="mt-lk mt-del">Delete tape</button></p></div></div>
 <div class="mt-build" hidden>
 <div class="mt-left"><div class="mt-well"><button type="button" class="mt-cass" aria-label="Tap for another cassette" title="Tap for another cassette"></button></div>
 <div class="mt-seq" aria-hidden="true"><div class="mt-seqhead"><span class="mt-print">ON THIS TAPE</span><span class="mt-readout" id="mtReadout"></span></div>
 <div class="mt-grid" id="mtGrid">${[['bd','KICK'],['sd','SNARE'],['hh','HATS'],['bs','BASS'],['ky','KEYS']].map(([ch,lab])=>`<div class="mt-ch" data-ch="${ch}"><span>${lab}</span>${Array.from({length:16},(_,i)=>`<i data-s="${i}"></i>`).join('')}</div>`).join('')}</div>
-<div class="mt-run" id="mtRun">${Array.from({length:16},(_,i)=>`<i class="c${i>>2}"></i>`).join('')}</div></div></div>
+<div class="mt-run" id="mtRun">${Array.from({length:16},(_,i)=>`<i class="c${i>>2}"${i%4?'':` data-n="${i+1}"`}></i>`).join('')}</div></div></div>
 <div class="mt-right">
-<div class="mt-hwrow mt-start"><div class="mt-rowhead"><span class="mt-print">START WITH</span><button type="button" class="hw mt-reroll" title="Same layers, a different tune">NEW TUNE ↻</button></div><div class="mt-keys mt-presets" role="group" aria-label="Start with">${BASE_ORDER.map(i=>`<button type="button" class="hw" data-base="${i}">${BASES[i][0].toUpperCase()}</button>`).join('')}</div></div>
+<div class="mt-hwrow mt-start"><div class="mt-rowhead"><span class="mt-print">START WITH</span></div><div class="mt-keys mt-presets" role="group" aria-label="Start with">${BASE_ORDER.map(i=>`<button type="button" class="hw" data-base="${i}">${BASES[i][0].toUpperCase()}</button>`).join('')}</div></div>
 ${ROWS.map(R=>`<div class="mt-hwrow" data-l="${R.k}"><span class="mt-print">${R.name.toUpperCase()}</span><div class="mt-keys" role="group" aria-label="${R.name}"></div></div>`).join('')}
-<div class="mt-rec"><span class="mt-print"><b class="mt-led"></b> REC</span><button type="button" class="hw hw-big mt-save">SAVE TAPE</button></div>
+<div class="mt-rec"><span class="mt-print"><b class="mt-led"></b> REC</span><button type="button" class="hw mt-reroll" title="Same parts, a new melody and new chords">NEW TUNE ↻</button><button type="button" class="hw hw-big mt-save">SAVE TAPE</button></div>
 </div></div>
 <p class="mt-model">CATNIP FM · HOME CASSETTE DECK · AUTO REVERSE</p>`;
 mt.hidden=!!BC;face.after(mt);
@@ -955,8 +933,8 @@ const mtQ=sel=>mt.querySelector(sel);
 function mtIsSaved(){return !!(mtTape&&mtTape.id&&S.tapes.includes(mtTape));}
 function mtId(){return mtIsSaved()?'tape:'+mtTape.id:'tape:draft';}
 let mtView='now',draftIn=false,delArm=0,renaming=false;
-const BEAT_NAME=d=>d?['Soft','Lo-fi','House','Trip-hop','Synthwave'][d-1]+' beat':'';
-function tapeRecipe(tp){const keys=tp.k?(tp.k===4?'8-bit keys':KEYS[tp.k-1]):null;return [tp.i?BASES[tp.s][0]:BEAT_NAME(tp.d),tp.b?BASSES[tp.b-1]+' bass':null,keys,tp.w?OUTSIDE[tp.w-1]:null].filter(Boolean).join(' · ');}
+const BEAT_NAME=d=>d?['Soft','Lo-fi','House'][d-1]+' beat':'';
+function tapeRecipe(tp){const keys=tp.k?(tp.k===4?'8-bit keys':KEYS[tp.k-1]):null;return [tp.i?BASES[tp.s][0]:BEAT_NAME(tp.d),tp.i&&BASES[tp.s]&&tp.p!==BASES[tp.s][1].p?SPEEDS[tp.p]:null,tp.b?BASSES[tp.b-1]+' bass':null,keys,tp.w?OUTSIDE[tp.w-1]:null].filter(Boolean).join(' · ');}
 function autoName(tp){const d=new Date(),day=DAYNAME[d.getDay()],h=d.getHours(),when=h>=20||h<5?' Night':h<12?' Morning':'';
   const adj=tp.w?['Rainy','Seaside','Fireside','Purring'][tp.w-1]:tp.b?['Warm','Deep','Neon'][tp.b-1]:tp.k?['Velvet','Easy','Hazy','Pixel'][tp.k-1]:'Quiet';
   const n=adj+' '+day+when;return n.length<=24?n:adj+' '+day;}
@@ -965,7 +943,7 @@ function shownTape(tp){return isAuto(tp)?Object.assign({},tp,{n:autoName(tp)}):t
 /* what the deck is showing right now: a station, your tape, a friend's tape, or your unsaved mix */
 function nowItem(){const tp=tapeOf(S.station);
   if(tp){mtTape=tp;const kind=tp===draft?(draftIn?'friend':'draft'):'saved';return {kind,tape:shownTape(tp),id:S.station};}
-  const st=[...MUSIC,...CALM].find(s=>s.id===S.station)||MUSIC[0],[c,desc]=STATION_TAPE[st.id]||[1,''];
+  const st=[...MUSIC,...CALM,...HIDDEN].find(s=>s.id===S.station)||MUSIC[0];let [c,desc]=STATION_TAPE[st.id]||[1,''];if(st.id==='gen:today')desc=todayLabel()+'. Everyone gets this one today. Tomorrow it\'s something else.';
   return {kind:'station',tape:{n:st.name,c,f:Math.round(parseFloat(FREQ[st.id]||'88.3')*10)},desc,id:st.id};}
 const onAir=id=>!!gen&&gen.id===id&&playing();
 function paintMixtape(){if(BC)return;const build=mtView==='build'&&!!mtTape;mt.classList.toggle('building',build);document.documentElement.classList.toggle('mt-open',build);
@@ -977,18 +955,18 @@ function paintMixtape(){if(BC)return;const build=mtView==='build'&&!!mtTape;mt.c
       mtQ(`.mt-hwrow[data-l="${R.k}"] .mt-keys`).innerHTML=opts.map(([v,lab])=>`<button type="button" class="hw" data-l="${R.k}" data-v="${v}" aria-pressed="${tp[R.k]===v}">${lab.toUpperCase()}</button>`).join('');}
     mtQ('.mt-save').textContent=saved?'DONE':'SAVE TAPE';mtQ('.mt-led').classList.toggle('on',onAir(mtId()));return;}
   const it=nowItem(),on=onAir(it.id),k=it.kind,show=(c,v)=>{mtQ(c).hidden=!v;};
-  const raw=tapeOf(S.station),from=raw&&raw.by;mtQ('.mt-where').textContent=(on?'NOW PLAYING':'READY')+(k==='saved'?(from?' · MIXED BY '+from.toUpperCase():' · YOUR TAPE'):k==='friend'?' · MIXED BY '+(from?from.toUpperCase():'LOAFIE'):k==='draft'?' · NOT SAVED':'');
+  const raw=tapeOf(S.station),from=raw&&raw.by;const lin=raw&&raw.from?' · REMIXED FROM '+raw.from.toUpperCase():'';mtQ('.mt-where').textContent=(on?'NOW PLAYING':'READY')+(k==='saved'?(from?' · MIXED BY '+from.toUpperCase():' · YOUR TAPE'):k==='friend'?' · MIXED BY '+(from?from.toUpperCase():'LOAFIE'):k==='draft'?' · NOT SAVED':'')+lin;
   {const fr=mtQ('.mt-from');fr.hidden=!(k==='saved'&&!from);const fi=mtQ('.mt-fromname');if(document.activeElement!==fi)fi.value=S.by||'';}
   const big=mtQ('.mt-big');big.innerHTML=cassetteSVG(it.tape,mtPhase);const cyc=k==='saved'||k==='draft';big.classList.toggle('cycles',cyc);
   if(cyc){big.setAttribute('aria-label','Tap for another cassette');big.title='Tap for another cassette';}else{big.removeAttribute('aria-label');big.removeAttribute('title');}
   mtQ('.mt-title').textContent=it.tape.n;mtQ('.mt-freq').textContent=(it.tape.f/10).toFixed(1)+' FM';mtQ('.mt-recipe').textContent=k==='station'?it.desc:tapeRecipe(it.tape);
   /* the one big orange key is whatever you'd most likely do next */
   show('.mt-play',!on);mtQ('.mt-play').textContent='PLAY';
-  show('.mt-make',k==='station');show('.mt-savedraft',k==='draft');show('.mt-keepmixing',k==='draft');show('.mt-share',k==='saved');show('.mt-rename',k==='saved');show('.mt-edit',k==='saved');show('.mt-keep',k==='friend');
-  const primary=!on?'.mt-play':k==='station'?'.mt-make':k==='saved'?'.mt-share':k==='draft'?'.mt-savedraft':'.mt-keep';
+  show('.mt-make',k==='station');show('.mt-savedraft',k==='draft');show('.mt-keepmixing',k==='draft');show('.mt-share',k==='saved');show('.mt-rename',k==='saved');show('.mt-edit',k==='saved'||k==='friend');show('.mt-keep',k==='friend');
+  const primary=!on?'.mt-play':k==='station'?'.mt-make':k==='saved'?'.mt-share':k==='draft'?'.mt-savedraft':'.mt-edit'; /* someone else's tape: REMIX is the big one */
   mt.querySelectorAll('.mt-acts .hw').forEach(b=>b.classList.toggle('hw-big',b.matches(primary)));
   mtQ('.mt-hint').textContent=k==='station'?'Start from '+it.tape.n+', stack a layer or two, save the tape.':'';
-  show('.mt-again',k==='friend'||k==='saved');mtQ('.mt-again').textContent=k==='saved'?'New tape':'Make your own';show('.mt-card',k==='saved');show('.mt-del',k==='saved');
+  show('.mt-new',true);show('.mt-post',k==='saved');show('.mt-card',k==='saved');show('.mt-del',k==='saved');
   mtQ('.mt-renamebox').hidden=!(renaming&&k==='saved');if(renaming&&document.activeElement!==mtQ('.mt-name'))mtQ('.mt-name').value=it.tape.n;
   mtQ('.mt-del').textContent=delArm>Date.now()?'Tap again to delete':'Delete tape';if(k==='saved')queueCard();}
 function mtShow(v){mtView=v;renaming=false;delArm=0;mtQ('.mt-note2').textContent='';paintMixtape();}
@@ -1026,7 +1004,7 @@ function seqFrame(){seqRaf=0;if(mt.hidden||mtView!=='build'||!mtTape)return;seqR
   const grid={bd:0,sd:0,hh:0,bs:0,ky:0};const mark=(ch,t)=>{if(t>=b0-.01&&t<b0+barDur-.01){const i=Math.max(0,Math.min(15,Math.round((t-b0)/barDur*16)))%16;grid[ch]|=1<<i;}};
   for(let i=0;i<snd.hits.length;i+=2)mark(snd.hits[i],snd.hits[i+1]);for(let i=0;i<keyHits.length;i+=2)mark('ky',keyHits[i]);
   seqCells.forEach(c=>{const ch=c.parentNode.dataset.ch,i=+c.dataset.s,hit=!!(grid[ch]>>i&1);c.className=(hit?'on':'')+(i===stp?' now':'');});
-  runLeds.forEach((l,i)=>l.classList.toggle('on',i===stp));
+  runLeds.forEach((l,i)=>{l.classList.toggle('on',i===stp);l.classList.toggle('was',i===(stp+15)%16);}); /* the lamp, and a short trail behind it */
   readout.textContent=Math.round(snd.bpm)+' BPM · BAR '+barN;}
 function seqStart(){if(!seqRaf&&!RM.matches)seqRaf=requestAnimationFrame(seqFrame);}
 function stopSpin(){clearInterval(mtSpin);mtSpin=null;}
@@ -1037,7 +1015,7 @@ mt.addEventListener('click',e=>{
   const pb=e.target.closest('.mt-presets button');if(pb){const i=+pb.dataset.base;loadBase(i,tp);if(!tp.i){tp.i=1;}autoPalette(i);mtApply(true);return;} /* only an explicit pick changes the display */
   if(e.target.closest('.mt-cass')){tp.c=(tp.c+1)%SHELLS.length;mtApply(false);return;}
   if(e.target.closest('.mt-reroll')){tp.r=1+Math.floor(Math.random()*2147483646);mtApply(true);return;} /* a new seed: new key, mood, chords and hook; the layers and the name stay */
-  const kb=e.target.closest('.mt-keys button[data-l]');if(kb){const k=kb.dataset.l,v=+kb.dataset.v;tp[k]=tp[k]===v?0:v;mtApply(true);}}); /* lit: take it out; unlit: put it in */
+  const kb=e.target.closest('.mt-keys button[data-l]');if(kb){const k=kb.dataset.l,v=+kb.dataset.v;tp[k]=k==='p'?v:tp[k]===v?0:v;mtApply(true);}}); /* lit: take it out; unlit: put it in (speed is always one of the three) */
 function keepTape(){if(!mtTape)return;if(mtIsSaved()){mtShow('now');return;}
   if(S.tapes.length>=TAPE_MAX){const i=S.tapes.findIndex(t=>'tape:'+t.id!==S.station);if(i>=0)S.tapes.splice(i,1);} /* never refuse a save: the oldest tape makes room */
   const playing=gen&&gen.id==='tape:draft';mtTape.id=Date.now().toString(36);S.tapes.push(mtTape);draft=null;S.draft=null;draftIn=false;S.station='tape:'+mtTape.id;S.stationName=mtTape.n;if(playing)gen.id=S.station;save();fillStations();mtShow('now');}
@@ -1053,8 +1031,14 @@ mtQ('.mt-rename').addEventListener('click',()=>{renaming=!renaming;paintMixtape(
 mtQ('.mt-name').addEventListener('input',e=>{if(!mtTape)return;mtTape.n=e.target.value.replace(/[\u0000-\u001f<>]/g,'').slice(0,24)||'Untitled mixtape';mtQ('.mt-title').textContent=mtTape.n;mtQ('.mt-big').innerHTML=cassetteSVG(mtTape,mtPhase);clearTimeout(e.target._t);e.target._t=setTimeout(()=>mtApply(false),250);}); /* just the name: the music stays exactly as it is */
 mtQ('.mt-name').addEventListener('keydown',e=>{if(e.key==='Enter')mtQ('.mt-renamedone').click();});
 mtQ('.mt-renamedone').addEventListener('click',()=>{renaming=false;mtApply(false);});
-mtQ('.mt-edit').addEventListener('click',()=>{const tp=tapeOf(S.station);if(tp){mtTape=tp;if(!gen)playRadio();mtShow('build');seqStart();}});
-mtQ('.mt-again').addEventListener('click',()=>{const tp=tapeOf(S.station);newDraft([tp&&tp.i?tp.s:0,tp?tp.w:0]);mtShow('build');seqStart();});
+mtQ('.mt-edit').addEventListener('click',()=>{const tp=tapeOf(S.station);if(tp===draft&&draftIn){draftIn=false;if(draft.by)draft.from=draft.by;delete draft.by;keepDraft();} /* remixing someone's tape: it's your copy now, MIXED BY becomes you, and it remembers whose it was */
+  if(tp){mtTape=tp;if(!gen)playRadio();mtShow('build');seqStart();}});
+mtQ('.mt-new').addEventListener('click',()=>{track('mixtape_open');newDraft(seedFrom(S.station));mtShow('build');seqStart();}); /* NEW TAPE: this station's groove, nothing else carried over, a fresh tune */
+/* COPY REDDIT POST: plain text to paste under a thread: who and what, the parts, the frequency, the link */
+function redditPost(tp){const t=shownTape(tp),who=tp.by||S.by,lines=[(who?who+' — ':'')+t.n,tapeRecipe(t).toUpperCase().replace(/ BASS| KEYS/g,''),(t.f/10).toFixed(1)+' FM'];if(tp.from)lines.push('remixed from '+tp.from);lines.push(tapeURL(tp));return lines.join('\n');}
+mtQ('.mt-post').addEventListener('click',async e=>{if(!mtTape||!mtIsSaved())return;const b=e.currentTarget,txt=redditPost(mtTape);let ok=false;try{await navigator.clipboard.writeText(txt);ok=true;}catch(e2){}
+  if(!ok){try{const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;opacity:0;top:0';document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove();}catch(e2){}}
+  track('mixtape_share',{},true);b.textContent=ok?'COPIED':'COPY THE LINK INSTEAD';const n=mtQ('.mt-note2');n.textContent=ok?'Copied. Paste it in the comments.':'';setTimeout(()=>b.textContent='COPY REDDIT POST',2200);});
 mtQ('.mt-play').addEventListener('click',()=>{if(gen&&actx&&actx.state!=='running'){actx.resume().then(paintKeys,()=>{});return;}if(!gen)playRadio();paintKeys();});
 mtQ('.mt-del').addEventListener('click',()=>{if(!mtIsSaved())return;if(delArm<Date.now()){delArm=Date.now()+4000;paintMixtape();setTimeout(()=>{if(delArm&&delArm<=Date.now()){delArm=0;paintMixtape();}},4100);return;} /* asks once: tap again to delete */
   delArm=0;const id='tape:'+mtTape.id;S.tapes=S.tapes.filter(t=>t!==mtTape);mtTape=null;
@@ -1093,7 +1077,7 @@ async function tapeCardNow(){const k=JSON.stringify(mtTape);if(tcBlob&&tcKey===k
 const slug=n=>(n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'mixtape')+'-catnipfm.png';
 mtQ('.mt-share').addEventListener('click',e=>{if(!mtTape||!mtIsSaved())return;copyTapeLink(e.currentTarget,'SHARE');}); /* SHARE copies the link. That's it: paste it anywhere */
 mtQ('.mt-card').addEventListener('click',async()=>{if(!mtTape)return;const b=mtQ('.mt-card');b.disabled=true;try{const bl=await tapeCardNow();const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=slug(mtTape.n);document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}catch(e){}b.disabled=false;});
-window.loafCard=tapeCard; /* used to draw the site's own preview image */
+window.catnipCard=tapeCard; /* used to draw the site's own preview image */
 /* someone opened a mixtape link: load it as an unsaved tape, ready to play and keep */
 if(!BC&&new URLSearchParams(location.search).get('tape')){setTimeout(()=>track('tape_link_open'),1500);const tp=decodeTape(new URLSearchParams(location.search).get('tape'));
   if(tp){if(draft&&JSON.stringify(draft)!==JSON.stringify(tp)){if(/^(My|Untitled) mixtape$/.test(draft.n))draft.n=autoName(draft);draft.id=Date.now().toString(36);S.tapes.push(draft);if(S.tapes.length>TAPE_MAX)S.tapes.shift();}draft=tp;keepDraft();S.station='tape:draft';S.stationName=tp.n;draftIn=true;fillStations();mtShow('now');}
@@ -1108,25 +1092,18 @@ function tone(T,C,h){const L=T<=0?0:(T+16)/116;for(;C>=0;C-=.004){const a=C*Math
   const l=(L+.3963377774*a+.2158037573*b)**3,m=(L-.1055613458*a-.0638541728*b)**3,s=(L-.0894841775*a-1.2914855480*b)**3;
   const r=4.0767416621*l-3.3077115913*m+.2309699292*s,g=-1.2684380046*l+2.6097574011*m-.3413193965*s,bb=-.0041960863*l-.7034186147*m+1.7076147010*s;
   if(r>=-.002&&r<=1.002&&g>=-.002&&g<=1.002&&bb>=-.002&&bb<=1.002)return '#'+[r,g,bb].map(v=>gam(v).toString(16).padStart(2,'0')).join('');}const n=gam(L**3).toString(16).padStart(2,'0');return '#'+n+n+n;}
-const lightMQ=matchMedia('(prefers-color-scheme: light)');
-function isLight(){return false;} /* it's always night at Catnip FM: one dark look, whatever the device is set to */
-function applyScheme(){const pp=PALETTES[S.palette]||PALETTES.crt;const seed=pp.seed||pp.primary;const o=oklch(seed);const h=o.h;const chroma=o.C<.01?0:isLight()?.075:.1; /* tonal-spot: fixed primary chroma, hue from the seed; a grey seed gives a monochrome scheme */
-  const cs=chroma?.045:0,cn=chroma?(isLight()?.007:.012):0,cv=chroma?.02:0;const light=isLight();
-  const t=light?{p:40,onP:100,pc:90,onPc:30,s:40,sc:90,onSc:30,surf:99.6,low:97,con:95,high:92,highest:90,onS:10,onSv:30,out:50,outv:80,inv:20,onInv:95}
-               :{p:80,onP:20,pc:30,onPc:90,s:80,sc:30,onSc:90,surf:6,low:10,con:12,high:17,highest:22,onS:90,onSv:80,out:60,outv:30,inv:90,onInv:20};
+/* The page's colours. It's always night at Catnip FM: one dark look whatever the device is set to. The palette's seed
+   hue tints the accents (Material-style tonal spot); the case and the page are fixed nearly-black stereo gear. */
+function applyScheme(){const pp=PALETTES[S.palette]||PALETTES.crt;const seed=pp.seed||pp.primary;const o=oklch(seed);const h=o.h;const chroma=o.C<.01?0:.1; /* a grey seed gives a monochrome scheme */
+  const cs=chroma?.045:0,cn=chroma?.012:0,cv=chroma?.02:0;
+  const t={p:80,onP:20,pc:30,onPc:90,s:80,sc:30,onSc:90,surf:6,low:10,con:12,high:17,highest:22,onS:90,onSv:80,out:60,outv:30,inv:90,onInv:20};
   const v={'--p':tone(t.p,chroma,h),'--on-p':tone(t.onP,chroma,h),'--p-c':tone(t.pc,chroma,h),'--on-p-c':tone(t.onPc,chroma,h),
     '--s':tone(t.s,cs,h),'--s-c':tone(t.sc,cs,h),'--on-s-c':tone(t.onSc,cs,h),
-    '--surf':light?'#fdfdfd':tone(t.surf,cn,h),'--surf-low':tone(t.low,cn,h),'--surf-c':tone(t.con,cn,h),'--surf-high':tone(t.high,cn,h),'--surf-highest':tone(t.highest,cn,h),
+    '--surf':tone(t.surf,cn,h),'--surf-low':tone(t.low,cn,h),'--surf-c':tone(t.con,cn,h),'--surf-high':tone(t.high,cn,h),'--surf-highest':tone(t.highest,cn,h),
     '--on-surf':tone(t.onS,cn,h),'--on-surf-v':tone(t.onSv,cv,h),'--outline':tone(t.out,cv,h),'--outline-v':tone(t.outv,cv,h),'--inv':tone(t.inv,cn,h),'--on-inv':tone(t.onInv,cn,h)};
-  /* in light mode the page is nearly pure white; the panel keeps a hint of the palette */
-  if(pp.peg&&light){v['--surf-c']='#ecebe6';} /* Pegs in light mode: a putty-coloured case, like 80s electronics */
-  /* the case and the page: warm 80s electronics plastic in light mode, nearly-black stereo gear in dark; the palette only tints the accents */
-  Object.assign(v,light?{'--surf':'#f7f7f5','--surf-low':'#f1f1ee','--surf-c':'#ebebe8','--surf-high':'#e1e1dd','--surf-highest':'#d6d6d1','--on-surf':'#1d1c21','--on-surf-v':'#55545a','--outline':'#8e8d88','--outline-v':'#d8d7d2','--s-c':'#e1e1dd','--on-s-c':'#1d1c21'}
-    :{'--surf':'#121110','--surf-low':'#171614','--surf-c':'#1d1c1a','--surf-high':'#262422','--surf-highest':'#2f2d2a','--on-surf':'#ece6d8','--on-surf-v':'#bdb5a5','--outline':'#77705f','--outline-v':'#3b3833','--s-c':'#34312c','--on-s-c':'#ece6d8'});
-  v['--glow']=pp.secondary; /* the MIXTAPE key glows in the palette's lit colour */
-  const st=document.documentElement.style;for(const k in v)st.setProperty(k,v[k]);document.documentElement.classList.toggle('light',light);
+  Object.assign(v,{'--surf':'#121110','--surf-low':'#171614','--surf-c':'#1d1c1a','--surf-high':'#262422','--surf-highest':'#2f2d2a','--on-surf':'#ece6d8','--on-surf-v':'#bdb5a5','--outline':'#77705f','--outline-v':'#3b3833','--s-c':'#34312c','--on-s-c':'#ece6d8'}); /* the case and the page: fixed; the palette only tints the accents */
+  const st=document.documentElement.style;for(const k in v)st.setProperty(k,v[k]);
   const meta=document.querySelector('meta[name=theme-color]');if(meta)meta.content=v['--surf'];}
-lightMQ.addEventListener('change',()=>paintKeys());
 /* each tile is a tiny board in that palette: tinted unlit dots, clock, label and accent */
 function drawPalTile(cv,p,on){const d=Math.min(window.devicePixelRatio||1,2),pt=4*d;cv.width=24*d;cv.height=16*d;const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);
   g.fillStyle='#050607';g.beginPath();g.roundRect(0,0,cv.width,cv.height,3*d);g.fill();const cols=p.peg?p.rainbow.slice(0,6):[p.primary,p.primary,p.secondary,p.mid,p.accent,p.fish];
@@ -1158,7 +1135,7 @@ function paintKeys(){applyScheme();if(window.__mtPaint)window.__mtPaint();
   volEl.style.setProperty('--v',(S.volume*100)+'%');}
 
 
-/* ================= A cat on the desk (she lives on the 128x16 strip) ================= */
+/* ================= A cat on the rooftop (she lives on the 128x18 strip under the clock) ================= */
 const gfb=new Int32Array(W*GH);
 const KIT=['..##......##..','..#p#....#p#..','..##########..','.#####hh#####.','#############s','####o#####o##s','####o#####o##s','######hmh####s','.###########s.','...#######s...','#.########ss..','#.s#.#s.#ss...'];
 const KIT_STEP=['..##......##..','..#p#....#p#..','..##########..','.#####hh#####.','#############s','####o#####o##s','####o#####o##s','######hmh####s','.###########s.','...#######s...','#.########ss..','#.#s##.s.s#...'];
@@ -1178,12 +1155,13 @@ let CAT_SPR=null;const HEART=['.#.#.','#####','.###.','..#..'];
 const ZEE=['####','..#.','.#..','####'];
 const cat={x:60,dir:1,state:'sit',until:3,target:null,eat:null,blink:0,nextBlink:4,zt:0,purr:false,hearts:[],ht:0,pets:0,bob:0,earAt:-9};
 /* what kind of groove is on: 'beat' (drums), 'chip' (the 8-bit start) or 'ambient' (no drums). She behaves accordingly. */
-function grooveKind(){if(!playing())return 'none';const tp=tapeOf(S.station);if(tp)return tp.d===0?'ambient':(tp.i?tp.s===3:tp.k===4)?'chip':'beat';const rc=STATION_RECIPE[S.station];if(rc)return rc.s===3?'chip':'beat';return CALM.some(c=>c.id===S.station)?'ambient':'beat';}
+function grooveKind(){if(!playing())return 'none';const tp=tapeOf(S.station);if(tp)return tp.d===0?'ambient':(tp.i?tp.s===3:tp.k===4)?'chip':'beat';const rc=STATION_RECIPE[S.station];if(rc)return rc.d===0?'ambient':rc.s===3?'chip':'beat';return CALM.some(c=>c.id===S.station)?'ambient':'beat';}
 let purrNode=null;
 const ACT_WORDS={loaf:'loafing',groom:'grooming',yawn:'yawning',glance:'looking around',stretch:'stretching'};
 function catWords(){if(cat.inBox)return cat.state==='sleep'?'asleep in her box':cat.purr?'purring in her box':'in her box';if(cat.state==='hop')return 'hop!';if(cat.state==='sleep'&&cat.away)return 'dozing till you get back';if(cat.state==='act'&&ACT_WORDS[cat.act])return ACT_WORDS[cat.act];if(cat.state==='eat')return 'eating a fish';if(cat.state==='fed')return 'happy and full';if(cat.purr)return 'purring';if(cat.state==='sleep')return 'asleep';if(cat.state==='walk')return 'wandering';
-  return {rain:'watching the rain',snow:'watching the snow',leaves:'watching leaves fall',petals:'watching petals',fireflies:'watching fireflies'}[skyNow]||(cat.aloof?'pretending not to hear you':isNight(NOW())?'stargazing':'on the ledge');}
+  return skyNow==='rain'?'watching the rain':(cat.aloof?'pretending not to hear you':isNight(NOW())?'stargazing':'on the ledge');}
 function pick(t,now){const night=nightDim(now)<.7;
+  if(t-morseAt>MORSE.len&&Math.random()<1/300)morseAt=t;if(!visitor&&!cat.knockGo&&cat.state!=='knock'&&cat.x<W-50&&Math.random()<1/500)visitor={t0:t};
   if(mug.on&&!mug.fall&&!cat.inBox&&(KNOCK_SOON&&t>3||(t>90&&Math.random()<1/160))){KNOCK_SOON=false;cat.state='walk';cat.target=clamp(mug.x-13,DESK_MIN,W-14);cat.knockGo=true;return;} /* rare: off the roof it goes */
   let r=Math.random();const gk=grooveKind();if(gk==='ambient'&&r<.5)r=.52+r*.2;else if(gk==='chip'&&r>.9)r=.3+(r-.9)*2; /* ambient: more loafing, less wandering; 8-bit: she stays up and about */
   if(night&&r<.6){cat.state='sleep';cat.until=t+15+Math.random()*25;return;}
@@ -1199,17 +1177,22 @@ function pick(t,now){const night=nightDim(now)<.7;
   if(r<.86){cat.state='sit';cat.until=t+5+Math.random()*6;return;}
   if(r<.94){cat.goBox=true;cat.state='walk';cat.target=BOX_OUT;return;} /* if it fits, she sits */
   cat.state='sleep';cat.until=t+10+Math.random()*15;}
-/* her cardboard box, at the left end of the desk: tan whatever the palette, flaps open */
+/* her cardboard box, at the left end of the ledge: tan whatever the palette, flaps open */
 const BOX_X=2,BOX_IN=BOX_X+3,BOX_OUT=BOX_X+21,DESK_MIN=BOX_OUT;
 /* a mug someone left on the ledge. Once in a long while Loafie walks over, stares at it, pats it twice, and pushes it
    off the roof. Then she looks at you. No counter, no explanation. It's back later, when she's not looking.
    ?knock=1 makes her do it a few seconds after the page loads (for recording). */
 const MUG=['#####.','#rr#.#','#rr#.#','#####.'],MUGC={'#':0xd8d0c0,r:0xe8392b},MUG_TIP=['.####','#rr##','#rr#.','####.'];
 const mug={x:W-30,on:true,n:0,fall:null,back:0};
+/* two more rare things, no UI: the tower's light blinks M E O W in Morse for a few seconds; an orange cat walks along the far end
+   of the ledge, sits a moment, and leaves. ?morse=1 and ?visitor=1 bring them on straight away, for recording. */
+const MORSE=(()=>{const code={M:'--',E:'.',O:'---',W:'.--'},u=.16,seq=[];let t=0;for(const L of 'MEOW'){for(const c of code[L]){seq.push([t,t+(c==='-'?3*u:u)]);t+=(c==='-'?3*u:u)+u;}t+=2*u;}return {seq,len:t+1.2};})();
+let morseAt=-99,visitor=null;
+function towerOn(t){const e=t-morseAt;if(e>=0&&e<MORSE.len)return MORSE.seq.some(([a,b])=>e>=a&&e<b);return t%2.4<.3;}
 /* her entrance, once per browser session: peeking over the box straight away, then a hop out at about 1.15 s and a
-   little walk to the keyboard. Reduced motion skips it (she's just sitting there). Touching the desk finishes it. */
+   little walk along the ledge. Reduced motion skips it (she's just sitting there). Touching the ledge finishes it. */
 let entering=false,blink12=0; /* blink12: a fresh session opens with the clock blinking 12:00, like every VCR nobody set */
-if(!BC&&!RM.matches){try{if(!sessionStorage.getItem('loafIn')){sessionStorage.setItem('loafIn','1');entering=true;blink12=performance.now()+4200;}}catch(e){}}
+if(!BC&&!RM.matches){try{if(!sessionStorage.getItem('catnipIn')){sessionStorage.setItem('catnipIn','1');entering=true;blink12=performance.now()+4200;}}catch(e){}}
 if(entering){cat.inBox=true;cat.x=BOX_IN;cat.dir=1;cat.state='box';cat.t0=-.5;cat.until=1.15;cat.next=Math.round(W/2-10);}
 function endEntrance(){if(!entering)return;entering=false;if(cat.inBox||cat.state==='hop'){const t=(performance.now()-t0)/1000;cat.inBox=false;cat.x=BOX_OUT;cat.next=null;cat.hop=null;cat.state='sit';cat.until=t+4;dirty=true;}}
 const BOX=['X..................X','.X................X.','..LLLLLLLLLLLLLLLL..','..HTTTTTTTKKTTTTTD..','..HTTTTTTTKKTWWWWD..','..HTTTTTTTKKWWWWTD..','..SSSSSSSSSSSSSSSS..']; /* H lit side, D shaded side, S shadow at the base, K packing tape, W a crooked shipping label */
@@ -1253,55 +1236,19 @@ function blit(sp,x,y,c,eyesOpen=true,still=false){
       const fyy=fy<0?(sp===KIT_SLEEP?-2:-99):fy,last=j===f.length-1;let v=ch==='o'&&!eyesOpen?coatDot('#',u,j,fyy,row,last):coatDot(ch,u,j,fyy,row,last);gfb[yy*W+xx]=v;}});return;}
   if(!still)sp=facing(sp);sp.forEach((row,j)=>{for(let i=0;i<row.length;i++){const ch=row[i];if(ch==='.')continue;const xx=x+i,yy=y+j;if(xx<0||yy<0||xx>=W||yy>=GH)continue;gfb[yy*W+xx]=ch==='s'?SHADE:ch==='p'?EARC:ch==='h'?HIC:ch==='o'?(eyesOpen?-1:c):ch==='m'?-1:ch==='w'?dim(c,.7):c;}});}
 
-/* ================= The desk's sky (no location needed) =================
-   Night brings stars (no moon: nothing big hanging over the desk). The season comes from the date, flipped for the southern
-   hemisphere when the device's time zone is there. Each day has its own weather, picked from the date, so it's the
-   same all day and on every device. Try ?sky=rain, snow, leaves, petals or fireflies, and &night for the night sky. */
-const SKYQ=new URLSearchParams(location.search),SKY_FORCE=(SKYQ.get('sky')||'').toLowerCase(),LATE_FORCE=SKYQ.get('late')==='1',NIGHT_FORCE=SKYQ.has('night');let KNOCK_SOON=SKYQ.get('knock')==='1';
-const SOUTH=(()=>{try{return /^(Australia|Antarctica|Pacific\/(Auckland|Chatham|Fiji|Tongatapu|Apia|Noumea)|America\/(Sao_Paulo|Argentina|Buenos_Aires|Santiago|Montevideo|Asuncion|La_Paz|Lima|Punta_Arenas)|Africa\/(Johannesburg|Maputo|Harare|Windhoek|Gaborone|Lusaka|Maseru|Mbabane|Blantyre|Lubumbashi)|Indian\/(Mauritius|Reunion|Antananarivo))/.test(Intl.DateTimeFormat().resolvedOptions().timeZone||'');}catch(e){return false;}})();
-function season(d){let m=d.getMonth();if(SOUTH)m=(m+6)%12;return m===11||m<2?'winter':m<5?'spring':m<8?'summer':'autumn';}
+/* ================= Night, rain, and the test switches =================
+   It's always night on the rooftop; drawCity() draws the city, the stars, the rain and the weekend neon. Each day has
+   its own chance of rain, picked from the date (dayRand), so it's the same all day and on every device.
+   Test switches: ?sky=rain forces rain, &night forces the night-time states, &late=1 the late show, &knock=1 the mug. */
+const SKYQ=new URLSearchParams(location.search),SKY_FORCE=SKYQ.get('sky')==='rain',LATE_FORCE=SKYQ.get('late')==='1',NIGHT_FORCE=SKYQ.has('night');let KNOCK_SOON=SKYQ.get('knock')==='1';if(SKYQ.get('morse')==='1')setTimeout(()=>{morseAt=(performance.now()-t0)/1000+1;},1500);if(SKYQ.get('visitor')==='1')setTimeout(()=>{visitor={t0:(performance.now()-t0)/1000};},1500);
 function dayRand(d){let h=d.getFullYear()*400+d.getMonth()*32+d.getDate();h=Math.imul(h^h>>>15,2246822507);h=Math.imul(h^h>>>13,3266489909);return ((h^h>>>16)>>>0)/4294967296;}
 function isNight(d){if(NIGHT_FORCE)return true;const h=d.getHours();return h>=20||h<6;}
-/* while something plays, the sky goes with it; otherwise it follows the season and the day */
-const STATION_SKY={'gen:rain':'rain','gen:late':'stars','gen:nine':'stars','gen:waves':'stars','gen:fire':'stars','gen:crt':'stars','gen:purr':'plain','gen:brown':'plain'};
-function skyKind(d){if(SKY_FORCE)return SKY_FORCE;
-  if(gen){if(STATION_SKY[gen.id])return STATION_SKY[gen.id];const tp=tapeOf(gen.id);
-    if(tp)return tp.w===1?'rain':tp.w===2||tp.w===3?'stars':tp.w===4?'plain':(tp.k===4?'matrix':'stars');} /* a tape: its atmosphere, or stars (code rain for 8-bit) */
-  const s=season(d),r=dayRand(d);
-  if(s==='winter')return r<.45?'snow':r<.6?'rain':'clear';
-  if(r<.18)return 'rain';
-  return s==='autumn'?'leaves':s==='spring'?'petals':isNight(d)?'fireflies':'clear';}
-function outsideNow(){if(!gen)return 0;const tp=tapeOf(gen.id);if(tp)return tp.w;return {'gen:rain':1,'gen:waves':2,'gen:fire':3,'gen:purr':4}[gen.id]||0;}
-const TINT=[null,['#7fb4e6','#a9d4ff'],['#5fe0d6','#a6fff4'],['#ff8a3d','#ef5548','#ffc06b'],['#f7d7c4','#f4a9c8']];
-function tint(t){const w=outsideNow();if(!w)return;const cols=TINT[w].map(hexInt),n=RM.matches?2:4;
-  for(let i=0;i<n;i++){const k=Math.floor(t*(w===3?2.2:.5)+i*7.3),h=Math.abs(Math.sin(k*12.9898+i)*43758.5)%1,a=w===3?.35+.4*Math.abs(Math.sin(t*9+i*3)):.25+.2*Math.sin(t*1.3+i);
-    if(w===4){put(cat.x+3+h*10,6+((i*3)%5),dim(cols[i%2],Math.max(.12,a*.8)));continue;} /* a soft glow around her while she purrs */
-    put((h*W+i*31)%W,w===3?11+(i%2):w===2?12:10+(i%3),dim(cols[i%cols.length],a));}} /* the fire reflecting off the radio; rain and sea in cooler glints */
-function moonPhase(d){const p=((d.getTime()-Date.UTC(2000,0,6,18,14))/864e5/29.530588853)%1;return p<0?p+1:p;}
-function put(x,y,c){x=Math.round(x);y=Math.round(y);if(x>=0&&x<W&&y>=0&&y<13)gfb[(y+2)*W+x]=c;} /* the sky sits in the 13 rows above the desk */
-function drawSky(t,P,now){const peg=k=>[P.A,P.HI,P.FISH,P.S2][k],kind=skyKind(now);
-  if(isNight(now)||kind==='stars'){
-    for(let i=0;i<(kind==='stars'?14:9);i++){const sx=(i*23+Math.floor(t*(.3+i*.15)))%W;put(W-1-sx,(i*5)%9,dim(i%4?P.HI:P.FISH,i%4?.38:.5));}} /* stars, one in four warm */
-  if(kind==='stars'){ /* now and then a meteor: a bright head and a fading tail, across and down */
-    const per=11,k=Math.floor(t/per),ph=t-k*per,h=Math.abs(Math.sin(k*91.7+3.1)*43758.5)%1;
-    if(h<.75&&ph<1){const x0=12+h*85,y0=Math.floor(h*10)%3,q=ph;for(let j=0;j<7;j++){const qq=q-j*.035;if(qq<0)continue;put(x0+qq*30,y0+qq*8,dim(P.HI,(1-j/7)*(q<.8?1:(1-q)*5)));}}}
-  else if(kind==='matrix'){ /* CRT: falling code that wobbles sideways, and a scanline glitch now and then */
-    const cc=P.PEG?P.PEG[3]:P.A,wob=Math.round(Math.sin(t*2.3)*Math.sin(t*.7)*1.4);
-    for(let i=0;i<(RM.matches?5:9);i++){const sp=3+(i*7%5),x=(i*14+5+wob+W)%W,head=(t*sp+i*5.3)%19-3;
-      for(let j=0;j<4;j++){const y=Math.floor(head)-j;if(y>=0&&y<13)put(x,y,dim(cc,j?.55-j*.12:.95));}}
-    const g=t%6.5;if(g<.18){const y=Math.floor((t*7)%13);for(let x=0;x<W;x+=2)put(x+(Math.floor(t*40)%2),y,dim(cc,.35));}}
-  else if(kind==='rain'){const rc=P.PEG?dim(P.HI,.8):peg(3);for(let i=0;i<(RM.matches?8:16);i++){const y=(t*10+i*4.3)%13,x=(i*8+5-y*.5+W)%W;put(x,y,dim(rc,.6));put(x+.5,y-1,dim(rc,.25));}} /* rain is blue on the pegboard */
-  else if(kind==='snow')for(let i=0;i<(RM.matches?7:14);i++){const y=(t*2.2+i*3.7)%13,x=(i*9.1+Math.sin(t*.8+i)*2.2+W)%W;put(x,y,dim(P.HI,.8));}
-  else if(kind==='leaves')for(let i=0;i<(RM.matches?4:8);i++){const y=(t*1.6+i*2.9)%13,sw=Math.sin(t*1.1+i*2),x=((i*16.3+sw*4+t*1.5)%W+W)%W,c=dim(peg([0,2,0,2,1,0,2,0][i]),.85);put(x,y,c);put(x+1,y+(sw>0?1:-1),dim(c,.6));} /* two-dot leaves that tumble as they fall */
-  else if(kind==='petals')for(let i=0;i<(RM.matches?5:9);i++){const y=(t*1.3+i*2.1)%13,sw=Math.sin(t*.9+i*1.7),x=((i*14.7+sw*5+t*1.2)%W+W)%W,c=i%3?0xff9ec4:dim(P.C,.7);put(x,y,c);if(sw>.3)put(x+1,y,dim(c,.5));}
-  else if(kind==='fireflies')for(let i=0;i<(RM.matches?3:5);i++){const a=Math.sin(t*1.7+i*2.1);if(a<.2)continue;const x=(i*26+Math.sin(t*.4+i)*6+W)%W,y=2+(((i*5+Math.sin(t*.6+i*1.7)*3)%8)+8)%8;put(x,y,dim(i%2?peg(1):peg(2),a));}
-  return kind;}
 let skyNow='clear';
 let glast=0;
 function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(P.A,.85);const now=NOW();const FIELD=R(P.BG)+G(P.BG)+B(P.BG)>0?dim(P.BG,.6):-1;gfb.fill(FIELD);const dt=Math.min(.05,glast?t-glast:0);glast=t;catStep(t,dt,now);const ground=15;
   {const tmp=new Int32Array(W*ground).fill(-1);drawCity(tmp,H,H+ground,t,P,now);for(let i=0;i<tmp.length;i++)if(tmp[i]>=0)gfb[i]=tmp[i];}skyNow=raining(now)?'rain':'clear'; /* the city carries on behind her desk */
   for(let x=0;x<W;x++){gfb[ground*W+x]=x%9===4?0x6a6a6e:0x7c7c80;gfb[(ground+1)*W+x]=0x48484c;gfb[(ground+2)*W+x]=0x333336;} /* the ledge she lives on: a plain grey concrete sill, lit along the top edge, the same in every palette */
-  for(const tr of treats){if(tr.y<ground-3){tr.vy+=70*dt;tr.y=Math.min(ground-3,tr.y+tr.vy*dt);if(tr.y>=ground-3)plip();} /* the treat drops onto the desk */
+  for(const tr of treats){if(tr.y<ground-3){tr.vy+=70*dt;tr.y=Math.min(ground-3,tr.y+tr.vy*dt);if(tr.y>=ground-3)plip();} /* the treat drops onto the ledge */
     const bite=cat.state==='eat'&&cat.eat===tr?clamp((cat.until-t)/EAT_S,0,1):1;if(bite>0)blit(FISH,Math.round(tr.x),Math.round(tr.y),dim(P.FISH,.35+.65*bite),true,true);}
   if(mug.on){const g0=ground-4;
     if(mug.fall){const f=mug.fall;f.vy+=60*dt;f.y+=f.vy*dt;f.x+=f.vx*dt;const sp=f.y<1?MUG_TIP:MUG;
@@ -1309,6 +1256,8 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
       if(g0+f.y>GH){mug.on=false;mug.fall=null;mug.back=t+1200+Math.random()*1200;setTimeout(tink,900);}} /* gone over the edge; a faint tink from way down */
     else MUG.forEach((row,j)=>{for(let i=0;i<row.length;i++){const ch=row[i];if(ch!=='.')gfb[(g0+j)*W+mug.x+i]=MUGC[ch];}});}
   else if(t>mug.back&&Math.abs(cat.x+7-(W-27))>30){mug.on=true;mug.x=W-30;} /* someone left another one */
+  if(visitor){const e=t-visitor.t0;let vx,dir;if(e<6){vx=W+2-e*4;dir=-1;}else if(e<9){vx=W+2-24;dir=-1;}else if(e<15){vx=W-22+(e-9)*4;dir=1;}else visitor=null; /* in from the right, a sit, and back out */
+    if(visitor){const c0=S.coat,d0=cat.dir;S.coat='orange';cat.dir=dir;const walking=e<6||e>=9;blit(walking?(Math.floor(t*6)%2?KIT_STEP:KIT):(Math.floor(t*2)%3?KIT:KIT_LOOK),Math.round(vx),ground-12,P.C,true);S.coat=c0;cat.dir=d0;}}
   const preCat=gfb.slice(); /* to outline her against the city */
   const on=playing();const cx=Math.round(cat.x);const gk=on?grooveKind():'none';
   /* she listens: on a kick she dips (bobs her head) if she's up; a hat flicks an ear now and then */
@@ -1337,6 +1286,7 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
     else if(a==='stretch')blit(KIT_STRETCH,cx,gy-13,P.C,false);
     else blit(t-cat.earAt<.14?KIT_EAR:KIT,cx,gy-12,P.C,eyesOpen);}
   else if(cat.state==='walk'){const f=Math.floor(t*6)%2;blit(f?KIT_STEP:KIT,cx,gy-12,P.C,eyesOpen);}
+  else if(gen&&gen.id==='gen:dead'&&!cat.purr){const d0=cat.dir;cat.dir=1;blit(KIT_LOOKR,cx,gy-12,P.C,eyesOpen);cat.dir=d0;} /* dead air: she stares at something off the edge of the roof */
   else blit(t-cat.earAt<.14?KIT_EAR:KIT,cx,gy-12,P.C,eyesOpen);
   if(on&&cat.state!=='sleep'){const tw=Math.round(vu(t)[2]*2);for(let k=0;k<tw;k++){const tx=cat.dir>0?cx-1-k:cx+14+k;if(tx>=0&&tx<W)gfb[(gy-1-k)*W+tx]=hx((COATS[S.coat]||COATS.grey).st||(COATS[S.coat]||COATS.grey).pt||(COATS[S.coat]||COATS.grey).b);}} /* her tail flicks to the music */
   {const x0=Math.max(0,cx-3),x1=Math.min(W-1,cx+18),y1=ground-1,F=R(P.BG)+G(P.BG)+B(P.BG)>0?dim(P.BG,.6):-1,mark=[]; /* a one-dot dark outline round her, so she never melts into the buildings */
@@ -1345,14 +1295,7 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
   BOX.forEach((row,j)=>{for(let i=0;i<row.length;i++){const ch=row[i];if(ch!=='.')gfb[(ground-7+j)*W+BOX_X+i]=BOXC[ch];}}); /* the box goes in front of her */
   for(const hh of cat.hearts){hh.y-=dt*4;hh.x+=hh.dx*dt;hh.a-=dt*.35;if(hh.a>0)blit(HEART,Math.round(hh.x),Math.round(hh.y),dim(P.A,Math.max(.25,hh.a)));}
   cat.hearts=cat.hearts.filter(hh=>hh.a>0&&hh.y>-4);}
-/* She lives on the synth. Under the desk edge are 32 white keys, four dots each (three lit, one gap), C2 up to G6.
-   The gaps under the top row are filled where a black key sits, so the 2-and-3 pattern shows once you look.
-   Each note the music plays lights its key for a moment (folded into range by octaves). */
-const WHITE=[0,-1,1,-1,2,3,-1,4,-1,5,-1,6],BLACK_AFTER=[1,1,0,1,1,1,0]; /* white index per pitch class; is there a black key after each white key */
-function drawKeys(P,ground){const r1=ground+1,r2=ground+2;if(r2>=GH)return;const face=P.PEG?dim(0xffffff,.15):dim(P.HI,.15),blk=P.PEG?dim(0xffffff,.05):dim(P.HI,.055);
-  for(let k=0;k<32;k++){const x=k*4;for(let i=0;i<3;i++){gfb[r1*W+x+i]=face;gfb[r2*W+x+i]=face;}
-    gfb[r2*W+x+3]=-1;gfb[r1*W+x+3]=BLACK_AFTER[k%7]?blk:-1;}} /* the keys stay dark: lit with the melody they read as the cat stepping on them */
-/* touch: tap her to pet (she purrs while you hold); tap the desk and she mews and walks over */
+/* touch: tap her to pet (she purrs while you hold); tap the ledge and she mews and walks over */
 function ensureAudio(){if(!actx){actx=new (window.AudioContext||window.webkitAudioContext)();actx.addEventListener('statechange',()=>{dirty=true;if(typeof paintKeys==='function')paintKeys();});}if(actx.state==='suspended')actx.resume();return actx;}
 function purrStart(){if(purrNode)return;try{const a=ensureAudio();const o=a.createOscillator();o.type='sawtooth';o.frequency.value=27;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=140;
     const g=a.createGain();g.gain.value=0;const lfo=a.createOscillator();lfo.frequency.value=5.5;const lg=a.createGain();lg.gain.value=.045;lfo.connect(lg).connect(g.gain);
@@ -1370,9 +1313,9 @@ function mew(){try{const a=ensureAudio();if(!noiseBuf){noiseBuf=a.createBuffer(1
       const s=a.createBufferSource();s.buffer=noiseBuf;const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=4200;const bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=6800+Math.random()*600;bp.Q.value=1.2;
       const sg=a.createGain();const len=.09+Math.random()*.03;sg.gain.setValueAtTime(0,t+.02);sg.gain.linearRampToValueAtTime(.05,t+.04);sg.gain.linearRampToValueAtTime(.035,t+.02+len*.6);sg.gain.exponentialRampToValueAtTime(.0001,t+.02+len);
       s.connect(hp).connect(bp).connect(sg).connect(a.destination);s.start(t+.02,Math.random()*.1,len+.02);}}catch(e){}}
-function catHit(e){const r=gameWin.getBoundingClientRect();const x=camX+(e.clientX-r.left)/r.width*(W/ZOOM);return {x,near:Math.abs(x-(cat.x+7))<(COARSE.matches?12:9)};} /* on a touch screen the target is a thumb wide */
+function catHit(e){const r=gameWin.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*W;return {x,near:Math.abs(x-(cat.x+7))<(COARSE.matches?12:9)};} /* on a touch screen the target is a thumb wide */
 const COARSE=matchMedia('(pointer:coarse)');
-/* treats: tap the fish button whenever you like and one drops onto the desk near her; she trots over and eats it */
+/* treats: tap the fish button whenever you like and one drops onto the ledge near her; she trots over and eats it */
 let treats=[];const EAT_S=2.4;
 function dropTreat(){if(treats.length>=4)return;let x=cat.dir>0?cat.x+22:cat.x-9;if(x<1||x>W-6)x=cat.dir>0?cat.x-9:cat.x+22;x=clamp(x+Math.round((Math.random()-.5)*6),BOX_OUT+12,W-6);
   for(const o of treats)if(Math.abs(o.x-x)<6)x=clamp(o.x+(x<o.x?-6:6),BOX_OUT+12,W-6);treats.push({x,y:-3,vy:0});dirty=true;}
@@ -1395,25 +1338,26 @@ petHint=document.createElement('div');petHint.className='pethint';petHint.textCo
 if(!BC&&!S.petSeen&&matchMedia('(pointer:coarse)').matches)petHint.hidden=false;
 
 
-/* ================= Idle fade, keyboard, init ================= */
+/* ================= Idle fade, no shortcuts, init ================= */
 let idleT;function wake(){noteActive();document.body.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>document.body.classList.add('idle'),10000);}
 ['pointermove','pointerdown','keydown','touchstart','focusin','scroll','wheel'].forEach(ev=>document.addEventListener(ev,wake,{passive:true}));wake();
 /* No keyboard shortcuts on purpose: people type in other windows, and a stray key should never stop the music.
    Every control is still a normal button, so Tab and Enter work for keyboard users. */
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{});});}).catch(()=>{}); /* check for a new service worker on every visit and whenever the tab comes back */}
 paintKeys();paintGame();
+if(!BC)try{console.log('%cCATNIP FM  ·  MODEL CN-83','font:900 14px monospace;color:#f08a24');console.log('%cYou found the service hatch.\nNothing in here is a recording; it\'s all Web Audio, made while you listen.\nTry ?station=deadair','color:#bdb5a5');}catch(e){}
 
 
 /* ================= Z: Loafie naps =================
    A cat thing, not a mode: tap Z and she curls up (in her box, if she's in it); tap again and she wakes, yawns,
    stretches and carries on. The music doesn't care either way. A fish, or calling her, wakes her too. */
 const FISH=['.##.#','####.','.##.#'];
-const sitKey=$('sitKey');
+const napKey=$('napKey');
 function napStart(){cat.nap=true;cat.purr=false;purrStop();cat.goBox=false;cat.comeOver=false;cat.away=false;if(cat.state==='walk'||cat.state==='hop'){cat.target=null;}paintNap();dirty=true;}
 function napEnd(quiet){cat.nap=false;const t=(performance.now()-t0)/1000;if(!quiet)act(t,'yawn','stretch');else if(!cat.inBox)cat.state='sit';paintNap();dirty=true;}
-function paintNap(){const on=!!cat.nap,tt=on?'Wake her up':'Let her nap';sitKey.setAttribute('aria-pressed',String(on));sitKey.title=tt;sitKey.setAttribute('aria-label',tt);
-  if(pipSit){pipSit.setAttribute('aria-pressed',String(on));pipSit.title=tt;pipSit.setAttribute('aria-label',tt);pipSit.classList.toggle('on',on);}}
-sitKey.addEventListener('click',()=>{cat.nap?napEnd():napStart();});
+function paintNap(){const on=!!cat.nap,tt=on?'Wake her up':'Let her nap';napKey.setAttribute('aria-pressed',String(on));napKey.title=tt;napKey.setAttribute('aria-label',tt);
+  if(pipNap){pipNap.setAttribute('aria-pressed',String(on));pipNap.title=tt;pipNap.setAttribute('aria-label',tt);pipNap.classList.toggle('on',on);}}
+napKey.addEventListener('click',()=>{cat.nap?napEnd():napStart();});
 win.addEventListener('pointerdown',()=>{if(cat.nap)napEnd();}); /* the clock too: touch the board and she wakes */
 /* the coat key: a little head in her current coat; each tap is the next coat */
 const coatKey=$('coatKey');function paintCoat(){const cv=$('coatTile');if(!cv)return;const d=Math.min(window.devicePixelRatio||1,2),px2=2*d,rows=HEAD;cv.width=14*px2;cv.height=9*px2;const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);
@@ -1423,9 +1367,9 @@ coatKey.addEventListener('click',()=>{const i=COAT_ORDER.indexOf(S.coat||'grey')
 const feedKey=$('feedKey');function feed(){if(cat.nap)napEnd(true);dropTreat();}feedKey.addEventListener('click',feed);
 paintNap();
 /* ================= Float: the board in a small window that stays on top =================
-   Chrome and Edge (Document Picture-in-Picture): the real clock and desk move into an always-on-top window,
+   Chrome and Edge (Document Picture-in-Picture): the real clock and rooftop move into an always-on-top window,
    so the cat keeps walking and you can still pet her there. Safari: a video picture-in-picture of the clock and
-   the desk, drawn into one fixed-size canvas (resizing a streaming canvas is what used to crash it, and the old
+   the rooftop, drawn into one fixed-size canvas (resizing a streaming canvas is what used to crash it, and the old
    version only drew the clock, which is why the cat never showed). Phones, tablets and Firefox: no Float button. */
 const floatKey=$('floatKey'),floatNote=$('floatNote');
 const fineDesk=matchMedia('(pointer:fine) and (min-width:701px)');
@@ -1445,11 +1389,11 @@ function paintFloat(){floatKey.hidden=!(fineDesk.matches&&(canDocPip||canVidPip)
 if(fineDesk.addEventListener)fineDesk.addEventListener('change',paintFloat);
 async function floatDoc(){
   const w=Math.round(Math.min(560,Math.max(360,win.clientWidth*.5)));
-  const pw=await documentPictureInPicture.requestWindow({width:w,height:Math.round((w-12)*(.25+GH/W))+18+30}); /* +30 for the control strip under the desk */
+  const pw=await documentPictureInPicture.requestWindow({width:w,height:Math.round((w-12)*(.25+GH/W))+18+30}); /* +30 for the control strip under the board */
   /* copy the page's styles in as text (links don't always load into a picture-in-picture window) */
   for(const sh of document.styleSheets){try{const s=pw.document.createElement('style');s.textContent=[...sh.cssRules].map(r=>r.cssText).join('\n');pw.document.head.appendChild(s);}
     catch(e){if(sh.href){const n=pw.document.createElement('link');n.rel='stylesheet';n.href=sh.href;pw.document.head.appendChild(n);}}}
-  const st=pw.document.createElement('style');st.textContent='html,body{margin:0;height:100%;background:#050607;overflow:hidden}body{display:flex;flex-direction:column;gap:0;padding:6px;box-sizing:border-box}.pipbar{flex:0 0 auto;margin-top:6px;display:flex;align-items:center;gap:4px;height:26px;padding:0 2px;color:var(--pc,#ccc)}.pipleft{display:flex;gap:2px;margin-right:auto;opacity:.5;transition:opacity .2s}body:hover .pipleft{opacity:1}.pipbtn{width:28px;height:24px;border:0;border-radius:3px;padding:0;display:grid;place-items:center;cursor:pointer;background:transparent;color:inherit}.pipbtn:hover{background:rgba(255,255,255,.08)}.pipbtn svg{width:17px;height:15px;fill:currentColor}.pipbtn.on{background:rgba(255,255,255,.12)}.pipbtn:disabled{opacity:.3;cursor:default} /* under the desk, bottom right, never over the display */.pipdots{display:flex;gap:2px;opacity:.4;transition:opacity .2s}body:hover .pipdots,.pipdots:focus-within{opacity:1}.pipdots button{color:inherit;position:relative;width:28px;height:24px;border:0;border-radius:3px;padding:0;background:transparent;cursor:pointer;display:grid;place-items:center}.pipdots canvas{width:20px;height:13px;display:block}.pipdots button::after{content:"";position:absolute;left:50%;bottom:0;width:10px;height:2px;margin-left:-5px;background:repeating-linear-gradient(90deg,currentColor 0 2px,transparent 2px 4px);opacity:0}.pipdots button[aria-pressed="true"]::after{opacity:1}.pipdots button:hover{background:rgba(255,255,255,.08)}.pipmute{width:28px;height:24px;border:0;border-radius:3px;padding:0;display:grid;place-items:center;cursor:pointer;background:transparent;opacity:.5;transition:opacity .2s}.pipmute:hover{background:rgba(255,255,255,.08)}body:hover .pipmute,.pipmute:focus-visible,.pipmute.muted{opacity:1}.pipmute[hidden]{display:none}.pipmute svg{width:20px;height:17px;fill:currentColor;filter:drop-shadow(0 0 2px currentColor)}.pipmute svg+svg,.pipmute.muted svg:first-child{display:none}.pipmute.muted svg+svg{display:block}';
+  const st=pw.document.createElement('style');st.textContent='html,body{margin:0;height:100%;background:#050607;overflow:hidden}body{display:flex;flex-direction:column;gap:0;padding:6px;box-sizing:border-box}.pipbar{flex:0 0 auto;margin-top:6px;display:flex;align-items:center;gap:4px;height:26px;padding:0 2px;color:var(--pc,#ccc)}.pipleft{display:flex;gap:2px;margin-right:auto;opacity:.5;transition:opacity .2s}body:hover .pipleft{opacity:1}.pipbtn{width:28px;height:24px;border:0;border-radius:3px;padding:0;display:grid;place-items:center;cursor:pointer;background:transparent;color:inherit}.pipbtn:hover{background:rgba(255,255,255,.08)}.pipbtn svg{width:17px;height:15px;fill:currentColor}.pipbtn.on{background:rgba(255,255,255,.12)}.pipbtn:disabled{opacity:.3;cursor:default} /* under the board, bottom right, never over the display */.pipdots{display:flex;gap:2px;opacity:.4;transition:opacity .2s}body:hover .pipdots,.pipdots:focus-within{opacity:1}.pipdots button{color:inherit;position:relative;width:28px;height:24px;border:0;border-radius:3px;padding:0;background:transparent;cursor:pointer;display:grid;place-items:center}.pipdots canvas{width:20px;height:13px;display:block}.pipdots button::after{content:"";position:absolute;left:50%;bottom:0;width:10px;height:2px;margin-left:-5px;background:repeating-linear-gradient(90deg,currentColor 0 2px,transparent 2px 4px);opacity:0}.pipdots button[aria-pressed="true"]::after{opacity:1}.pipdots button:hover{background:rgba(255,255,255,.08)}.pipmute{width:28px;height:24px;border:0;border-radius:3px;padding:0;display:grid;place-items:center;cursor:pointer;background:transparent;opacity:.5;transition:opacity .2s}.pipmute:hover{background:rgba(255,255,255,.08)}body:hover .pipmute,.pipmute:focus-visible,.pipmute.muted{opacity:1}.pipmute[hidden]{display:none}.pipmute svg{width:20px;height:17px;fill:currentColor;filter:drop-shadow(0 0 2px currentColor)}.pipmute svg+svg,.pipmute.muted svg:first-child{display:none}.pipmute.muted svg+svg{display:block}';
   pw.document.head.appendChild(st);pw.document.title='Catnip FM';
   floatNote.style.minHeight=(win.offsetHeight+gameWin.offsetHeight+8)+'px';floatNote.hidden=false;
   pw.document.body.append(win,gameWin);
@@ -1460,12 +1404,12 @@ async function floatDoc(){
     d.addEventListener('click',()=>{S.palette=id;save();paintKeys();layout();});pd.appendChild(d);});
   const left=pw.document.createElement('div');left.className='pipleft';
   const fb=pw.document.createElement('button');fb.type='button';fb.className='pipbtn';fb.title='Give her a fish';fb.setAttribute('aria-label','Give her a fish');fb.innerHTML='<svg viewBox="-0.5 -2.5 12 12" shape-rendering="crispEdges"><path d="M2 0h4v1h-4zM1 1h6v1h-6zM8 1h2v1h-2zM0 2h1v1h-1zM2 2h8v1h-8zM0 3h9v1h-9zM0 4h10v1h-10zM1 5h6v1h-6zM8 5h2v1h-2zM2 6h4v1h-4z"/></svg>';fb.style.color='#ef8c32';fb.addEventListener('click',feed);
-  const zb=pw.document.createElement('button');zb.type='button';zb.className='pipbtn';zb.innerHTML='<svg viewBox="-1.5 -1.5 9 9" shape-rendering="crispEdges"><path d="M0 0h6v1h-6zM4 1h2v1h-2zM3 2h2v1h-2zM2 3h2v1h-2zM1 4h2v1h-2zM0 5h6v1h-6z"/></svg>';zb.addEventListener('click',()=>sitKey.click());zb.title='Let her nap';zb.setAttribute('aria-label','Let her nap');
-  left.append(fb,zb);bar.append(left,pd,mb);pw.document.body.appendChild(bar);pipMute=mb;pipDots=pd;pipFeed=fb;pipSit=zb;paintKeys();paintNap();
+  const zb=pw.document.createElement('button');zb.type='button';zb.className='pipbtn';zb.innerHTML='<svg viewBox="-1.5 -1.5 9 9" shape-rendering="crispEdges"><path d="M0 0h6v1h-6zM4 1h2v1h-2zM3 2h2v1h-2zM2 3h2v1h-2zM1 4h2v1h-2zM0 5h6v1h-6z"/></svg>';zb.addEventListener('click',()=>napKey.click());zb.title='Let her nap';zb.setAttribute('aria-label','Let her nap');
+  left.append(fb,zb);bar.append(left,pd,mb);pw.document.body.appendChild(bar);pipMute=mb;pipDots=pd;pipFeed=fb;pipNap=zb;paintKeys();paintNap();
   floatWin=pw;host=pw;restartLoop();
   pw.addEventListener('resize',relayout);
   ['pointermove','pointerdown','keydown'].forEach(ev=>pw.document.addEventListener(ev,noteActive,{passive:true}));
-  pw.addEventListener('pagehide',()=>{pipMute=null;pipDots=null;pipFeed=null;pipSit=null;floatNote.before(win,gameWin);floatNote.hidden=true;floatWin=null;host=window;restartLoop();layout();paintFloat();},{once:true});
+  pw.addEventListener('pagehide',()=>{pipMute=null;pipDots=null;pipFeed=null;pipNap=null;floatNote.before(win,gameWin);floatNote.hidden=true;floatWin=null;host=window;restartLoop();layout();paintFloat();},{once:true});
   layout();paintFloat();}
 function vidFrame(){const g=vidPip.g,w=vidPip.cv.width,h1=Math.round(w/4),h2=Math.round(w*GH/W);g.fillStyle='#050607';g.fillRect(0,0,w,vidPip.cv.height);
   g.drawImage(bgC,0,0,w,h1);g.drawImage(ledC,0,0,w,h1);g.drawImage(gbgC,0,h1,w,h2);g.drawImage(gledC,0,h1,w,h2);}
@@ -1487,17 +1431,17 @@ restartLoop();
    tuned, for Play or MAKE ONE. The play key never says Stop while the sound is held. */
 if(FIRST&&!BC&&!new URLSearchParams(location.search).get('tape')){try{const pol=navigator.getAutoplayPolicy?navigator.getAutoplayPolicy('audiocontext'):'';
   if(pol!=='disallowed'){const a=ensureAudio();setTimeout(()=>{if(a.state==='running'&&!gen)playRadio();},80);}}catch(e){}}
-if(BC){const st=[...CALM,...MUSIC].find(s=>s.id===S.station)||(draft&&S.station==='tape:draft'&&{name:draft.n})||MUSIC[0];S.stationName=st.name;fillStations();
+if(BC){const st=[...CALM,...MUSIC,...HIDDEN].find(s=>s.id===S.station)||(draft&&S.station==='tape:draft'&&{name:draft.n})||MUSIC[0];S.stationName=st.name;fillStations();
   const begin=()=>{if(!gen)genStart(S.station);if(actx&&actx.state!=='running'){const o=document.createElement('button');o.className='bcstart';o.textContent='Click to start the sound';
       o.addEventListener('click',()=>{actx.resume();o.remove();});document.body.appendChild(o);}};
   begin();
-  if(BC.rotate&&BC.list.length>1){let i=Math.max(0,BC.list.indexOf(S.station));setInterval(()=>{i=(i+1)%BC.list.length;const tpx=tapeOf(BC.list[i]),nx=tpx?{id:BC.list[i],name:tpx.n}:[...CALM,...MUSIC].find(s=>s.id===BC.list[i]);
+  if(BC.rotate&&BC.list.length>1){let i=Math.max(0,BC.list.indexOf(S.station));setInterval(()=>{i=(i+1)%BC.list.length;const tpx=tapeOf(BC.list[i]),nx=tpx?{id:BC.list[i],name:tpx.n}:[...CALM,...MUSIC,...HIDDEN].find(s=>s.id===BC.list[i]);
       genStop(false);setTimeout(()=>{S.station=nx.id;S.stationName=nx.name;dirty=true;fillStations();genStart(S.station);},1200);},BC.rotate*60000);} /* a gentle fade between stations */
   setInterval(()=>{if(gen)showCredit(gen.id);},8*60000);
   if(BCQ.get('frame')==='vertical'){ /* 9:16 for Shorts and Reels: the board on top, the cassette that's playing under it, the address at the bottom */
     document.documentElement.classList.add('vertical');const v=document.createElement('div');v.className='bcv';v.innerHTML='<div class="bcv-cass"></div><p class="bcv-name"></p><p class="bcv-site">catnipfm.com</p>';
     document.querySelector('.boardwrap').appendChild(v);let ph=0;
-    const paintV=()=>{const tp=tapeOf(S.station),st=[...MUSIC,...CALM].find(x=>x.id===S.station),info=tp?shownTape(tp):st?{n:st.name,c:(STATION_TAPE[st.id]||[1])[0],f:Math.round(parseFloat(FREQ[st.id]||'88.3')*10)}:null;if(!info)return;
+    const paintV=()=>{const tp=tapeOf(S.station),st=[...MUSIC,...CALM,...HIDDEN].find(x=>x.id===S.station),info=tp?shownTape(tp):st?{n:st.name,c:(STATION_TAPE[st.id]||[1])[0],f:Math.round(parseFloat(FREQ[st.id]||'88.3')*10)}:null;if(!info)return;
       if(playing()&&!RM.matches)ph=(ph+1)%4;v.querySelector('.bcv-cass').innerHTML=cassetteSVG(info,ph);v.querySelector('.bcv-name').textContent=info.n+' · '+(info.f/10).toFixed(1)+' FM';};
     paintV();setInterval(paintV,330);fitUnit();}
   if(BC.treats)setInterval(()=>{if(Math.random()<1/25&&!cat.nap)dropTreat();},60000);} /* a treat every 25 minutes or so */
@@ -1529,7 +1473,7 @@ if(BC){const st=[...CALM,...MUSIC].find(s=>s.id===S.station)||(draft&&S.station=
       if(push)history.pushState({},'',u.href);shown=norm(u.pathname);
       const t=u.hash&&document.getElementById(decodeURIComponent(u.hash.slice(1)));if(t)t.scrollIntoView();else window.scrollTo(0,0);
       fresh.setAttribute('tabindex','-1');fresh.focus({preventScroll:true});
-      window.dispatchEvent(new CustomEvent('loaf:pageview')); /* analytics.js counts these, if it's switched on */}
+      window.dispatchEvent(new CustomEvent('catnip:pageview')); /* analytics.js counts these, if it's switched on */}
     catch(err){location.href=u.href;}
     finally{if(my===seq)document.documentElement.classList.remove('turning');}}
 })();

@@ -45,9 +45,6 @@ h1{font:700 clamp(32px,4.8vw,50px)/1.1 var(--display);letter-spacing:.5px}
 h2{font:700 clamp(24px,2.9vw,31px)/1.2 var(--display);letter-spacing:.4px}
 h3{font-size:18px}
 .lede{font-size:18px;color:var(--on-surf-v);max-width:62ch;margin:0 0 16px}
-.tips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:20px 0 0;list-style:none}
-.tips li{font:500 13px/18px var(--font);color:var(--on-surf-v);background:var(--surf-c);border:1px solid var(--outline-v);border-radius:8px;padding:7px 12px}
-.tips b{color:var(--on-surf);font-weight:500}
 
 
 
@@ -113,7 +110,6 @@ h3{font-size:18px}
 .items dd{color:var(--on-surf-v)}
 @media (max-width:560px){.items{grid-template-columns:1fr}.items dt{border-bottom:0;padding-bottom:0}.items dd{padding-top:2px}}
 .beats{color:var(--on-surf-v);font-style:italic}
-kbd{font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border:1px solid var(--outline-v);border-bottom-width:2px;border-radius:5px;background:var(--surf-c)}
 /* 404 */
 .lostwrap{margin:8px 0 20px;max-width:440px}
 .lost{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 0 0 7px #1c1c1e}
@@ -122,15 +118,14 @@ kbd{font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;
 .lede.short{display:none}
 @media (max-width:700px){.lede.short{display:block}.lede.long{display:none}}
 
-/* liner notes and stickers: a few sections printed like cassette inserts and instruction labels */
+/* the A1 liner note: printed like a cassette insert */
 .liner{background:var(--surf-low);border:1px solid var(--outline-v);border-top:6px solid var(--c-orange);border-radius:4px;padding:18px 22px 10px;box-shadow:0 2px 0 rgba(0,0,0,.08)}
 .liner h2{border-bottom:1px dashed var(--outline)!important}
-.sticker{border:2px dashed var(--outline);border-radius:4px;padding:16px 20px 6px;background:color-mix(in srgb,var(--c-yellow) 18%,var(--surf))}
 .print{font:900 11px/1.4 var(--dots);letter-spacing:2px;text-transform:uppercase;color:var(--on-surf-v)}
 
 /* ================= 80s: the stripes =================
    Red, red-orange and orange, straight off a tape sleeve. They turn up on the logo, the intro (a cassette J-card),
-   the tracklist, the radio case and the footer; the stripe colours stay the same in light and dark. */
+   the tracklist, the radio case and the footer. */
 .brand .stripes{display:inline-grid;gap:2px;width:24px;margin-left:10px;vertical-align:middle}
 .brand .stripes i{display:block;height:3px}
 .stripes i:nth-child(1),.badge i:nth-of-type(1){background:var(--s1)}.stripes i:nth-child(2),.badge i:nth-of-type(2){background:var(--s2)}.stripes i:nth-child(3),.badge i:nth-of-type(3){background:var(--s3)}
@@ -191,3 +186,4 @@ kbd{font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;
 @media (max-width:700px){.unit-print span:last-child{display:none}}
 
 .tag-f{border-color:var(--s3);color:var(--s3)}.tag-c{border-color:var(--c-cyan);color:var(--c-cyan)}.tag-t{border-color:var(--s1);color:var(--s1)}
+.page1 .side-b{margin:64px 0 32px} /* Side B: the liner notes start here */

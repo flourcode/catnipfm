@@ -167,18 +167,18 @@
 
 <script>
 (function(){
-  const STATIONS=[['nine','Nine Lives','87.9'],['late','Late Shift','88.3'],['crt','Rooftop','94.1'],
+  const STATIONS=[['nine','Nine Lives','87.9'],['late','Late Shift','88.3'],['crt','Rooftop','94.1'],['today',"Today's Tape",'91.3'],
     ['purr','Purr','89.9'],['rain','Rain','90.5'],['ocean','Ocean','93.3'],['fire','Fireplace','99.1'],['brown','Brown noise','100.7']];
   const ZONES=[['America/Los_Angeles','Pacific (PT)'],['America/Denver','Mountain (MT)'],['America/Chicago','Central (CT)'],['America/New_York','Eastern (ET)'],
     ['Europe/London','London'],['Europe/Berlin','Central Europe'],['Asia/Tokyo','Tokyo'],['Australia/Sydney','Sydney'],['UTC','UTC'],['custom','Other…']];
-  const KEY='loafFMStudio';
+  const KEY='catnipFMStudio';
   const $=id=>document.getElementById(id),f=$('f');
   const st=$('station'),og1=document.createElement('optgroup'),og2=document.createElement('optgroup');og1.label='Catnip FM';og2.label='Calm';
-  STATIONS.forEach(([k,n,fq],i)=>{const o=new Option(n+'  ·  '+fq,k);(i<3?og1:og2).appendChild(o);
-    const l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox" name="rot_'+k+'"'+(i<3?' checked':'')+'> '+n;$('rotList').appendChild(l);});
+  STATIONS.forEach(([k,n,fq],i)=>{const o=new Option(n+'  ·  '+fq,k);(i<4?og1:og2).appendChild(o);
+    const l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox" name="rot_'+k+'"'+(i<4?' checked':'')+'> '+n;$('rotList').appendChild(l);});
   st.append(og1,og2);
   ZONES.forEach(([v,n])=>$('tz').appendChild(new Option(n,v)));
-  const DEF={tape:'',mode:'video',station:'nine',rotateOn:false,rotate:60,palette:'pegs',coat:'grey',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,case:'dark',treats:true,dim:true,late:false,tapes:'',frame:'wide',by:'',base:new URL('./',location.href).href,rot:['nine','late','crt']};
+  const DEF={tape:'',mode:'video',station:'nine',rotateOn:false,rotate:60,palette:'pegs',coat:'grey',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,treats:true,dim:true,late:false,tapes:'',frame:'wide',by:'',base:new URL('./',location.href).href,rot:['nine','late','crt']};
   let cfg=Object.assign({},DEF);try{Object.assign(cfg,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){}
 
   function toForm(){f.mode.value=cfg.mode;st.value=cfg.station;$('rotateOn').checked=cfg.rotateOn;$('rotate').value=cfg.rotate;$('palette').value=cfg.palette;$('coat').value=cfg.coat||'grey';
@@ -211,7 +211,7 @@
   f.addEventListener('input',render);f.addEventListener('change',render);$('pvSound').addEventListener('change',render);
   $('copy').addEventListener('click',async()=>{const u=address(false);try{await navigator.clipboard.writeText(u);}catch(e){const r=document.createRange();r.selectNodeContents($('url'));getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand('copy');}
     const b=$('copy'),t=b.textContent;b.textContent='Copied';setTimeout(()=>b.textContent=t,1400);});
-  $('open').addEventListener('click',()=>window.open(address(false),'loafBroadcast',cfg.frame==='vertical'?'width=540,height=960':'width=1920,height=1080'));
+  $('open').addEventListener('click',()=>window.open(address(false),'catnipBroadcast',cfg.frame==='vertical'?'width=540,height=960':'width=1920,height=1080'));
   const PRESETS={lofi:{mode:'video',frame:'wide',station:'late',rotateOn:false,palette:'red',late:false,dim:false,tape:''},
     late:{mode:'video',frame:'wide',station:'crt',rotateOn:true,rotate:30,rot:['crt','nine'],palette:'pegs',late:true,dim:false,tape:''},
     short:{mode:'video',frame:'vertical',station:'nine',rotateOn:false,palette:'pegs',late:true,dim:false,tape:''}};

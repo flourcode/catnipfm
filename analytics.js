@@ -1,21 +1,23 @@
-/* Catnip FM · analytics (switched OFF until you add an ID)
+/* Catnip FM · analytics. Google Analytics 4 is ON, with the Measurement ID below.
  *
- * Every page loads this file, so this is the only place to change. To turn on Google Analytics 4:
- *   1. Create a GA4 property and web data stream, and copy its Measurement ID (it looks like G-XXXXXXXXXX).
- *   2. Paste it between the quotes below.
- *   3. Update privacy.html first (README.md, "Turning on analytics", has the wording), then deploy.
- * While the ID is empty, this file does nothing at all: no requests, no cookies.
+ * Every page loads this file, so this is the only place to change.
+ *   - To switch it off: empty GA_MEASUREMENT_ID (the file then does nothing at all: no requests, no cookies).
+ *   - To use another property: paste its Measurement ID (G-XXXXXXXXXX) in its place.
+ *   - If you change what's collected, update privacy.html first, then deploy.
  *
- * What it does once switched on:
+ * What it does:
  *   - Loads Google's gtag.js and counts page views. Pages swapped in without a reload are counted by GA4's enhanced
  *     measurement (leave "page changes based on browser history events" switched on in the data stream settings).
+ *   - board.js sends a few events through window.gtag (play_radio, pet_loafie, mixtape_open, mixtape_save,
+ *     mixtape_share, tape_link_open), never in broadcast mode.
  *   - Uses Google Consent Mode: advertising storage is always denied, and in the EEA, the UK and Switzerland
  *     analytics storage is denied too (Google then sends cookieless pings), because there's no consent banner.
  *     If you later add a certified consent banner (needed anyway for AdSense in those regions), let it update consent.
  *   - IP addresses aren't stored by GA4; Google Signals and ad personalisation stay off.
+ *   - Not loaded when the browser sends Do Not Track or Global Privacy Control, or on localhost.
  */
 (function () {
-  var GA_MEASUREMENT_ID = 'G-0Y62CW4XDM'; // e.g. 'G-XXXXXXXXXX'
+  var GA_MEASUREMENT_ID = 'G-0Y62CW4XDM'; // empty this to switch analytics off
 
   if (!GA_MEASUREMENT_ID) return;
   if (navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.globalPrivacyControl) return; // honour browser privacy signals
