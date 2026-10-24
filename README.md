@@ -176,6 +176,8 @@ Storage keys are `catnipFM` (the site) and `catnipFMStudio` (Studio); the sessio
 
 `hello@catnipfm.com` appears in the footer, the home page and the privacy and terms pages. Search and replace if you use a different one.
 
+The YouTube channel is `https://www.youtube.com/@catnip_fm`: linked in the footer of every page, in A1 and B6 on the home page (opening a new tab so the music keeps playing), and as `sameAs` in the home page's structured data.
+
 ## Credits
 
 Music and sounds: Catnip FM's own code, played in your browser. Fonts: Doto and IBM Plex Sans (SIL Open Font License). The cat and the board: made for Catnip FM.
