@@ -377,3 +377,8 @@ html.broadcast .unit{border-radius:0}
 @media (max-width:700px){
   .mixtape.building{background:var(--plate);padding:10px 14px calc(16px + env(safe-area-inset-bottom));border-radius:0;border-top:4px solid #3d3833;box-shadow:0 -2px 0 #0b0a09,0 -10px 30px rgba(0,0,0,.5)}
   .mixtape.building::before{background:var(--plate-print);border-radius:0}}
+/* FROM: your name on the tapes you share (optional) */
+.mt-from{display:flex;align-items:center;gap:10px;margin-top:10px;max-width:420px}.mt-from[hidden]{display:none}
+.mt-from .mt-print{flex:0 0 auto}
+.mt-fromname{flex:1;min-width:0;font:600 15px/20px var(--font);padding:8px 10px;border:2px solid #000;border-radius:0;background:var(--glass);color:#f4ecd8;box-shadow:inset 0 0 0 1px var(--glass-off)}
+.mt-fromname::placeholder{color:#8f8676}

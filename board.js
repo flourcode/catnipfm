@@ -101,6 +101,7 @@ const BASE_ORDER=[0,1,2,3];
 const LEGACY=[{d:1,b:1,k:0,w:1,p:1},{d:1,b:1,k:1,w:0,p:1},{d:2,b:2,k:0,w:0,p:1},{d:0,b:0,k:2,w:2,p:0},{d:3,b:3,k:3,w:0,p:2}]; /* what older tapes (lo-fi, bossa, house, ambient, 8-bit) become */
 let draft=null; /* the tape being made, before it's saved */
 const clampInt=(v,lo,hi,d)=>{v=Math.round(+v);return Number.isFinite(v)?Math.max(lo,Math.min(hi,v)):d;};
+const cleanBy=v=>String(v||'').replace(/[^\w &'.,!?\/-]/g,'').replace(/\s+/g,' ').trim().slice(0,24)||undefined; /* who made it: plain text, short */
 function cleanTape(t){if(!t||typeof t!=='object')return null;const n=String(t.n||'').replace(/[\u0000-\u001f<>]/g,'').trim().slice(0,24)||'Untitled mixtape';
   let d=t.d,b=t.b,k=t.k,p=t.p,sb=t.s;
   if(t.e!==5){ /* older tapes: bring them up to the layers version */
@@ -108,7 +109,7 @@ function cleanTape(t){if(!t||typeof t!=='object')return null;const n=String(t.n|
       const pr=LEGACY[clampInt(v,0,4,0)];d=pr.d;b=pr.b;k=pr.k;p=clampInt(g,0,2,1);}
     else if(t.e!==4)d=[0,1,1,2][clampInt(d,0,3,1)]; /* the drums version: brushes become lo-fi */
     const d4=clampInt(d,0,3,1),k4=clampInt(k,0,3,0);d=[0,2,3,2][d4];k=k4+1;sb=k4===3?3:d4===2?1:d4===0&&k4===2?2:0;} /* the steps version: beats and keys renumbered, keys can now be off */
-  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,SHELLS.length-1,0),d:clampInt(d,0,3,1),b:clampInt(b,0,3,0),k:clampInt(k,0,4,1),w:clampInt(t.w,0,4,0),p:clampInt(p,0,2,1),f:clampInt(t.f,879,1079,0)||randFreq(),s:clampInt(sb,0,3,0),r:clampInt(t.r,1,2147483647,0),e:5,i:t.i?1:0};} /* r: the tune's seed (0 on older tapes: their name is the seed, so they keep their tune) */
+  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,SHELLS.length-1,0),d:clampInt(d,0,3,1),b:clampInt(b,0,3,0),k:clampInt(k,0,4,1),w:clampInt(t.w,0,4,0),p:clampInt(p,0,2,1),f:clampInt(t.f,879,1079,0)||randFreq(),s:clampInt(sb,0,3,0),r:clampInt(t.r,1,2147483647,0),e:5,i:t.i?1:0,by:cleanBy(t.by)};} /* r: the tune's seed (0 on older tapes: their name is the seed, so they keep their tune) */
 function randFreq(){const taken=new Set(Object.values(FREQ_FIXED).map(f=>Math.round(f*10)));let f;do{f=879+2*Math.floor(Math.random()*101);}while(taken.has(f));return f;} /* a free spot on the dial, odd tenths like real FM */
 const FREQ_FIXED={nine:87.9,late:88.3,crt:94.1,purr:89.9,rain:90.5,waves:93.3,fire:99.1,brown:100.7};
 S.tapes=(Array.isArray(S.tapes)?S.tapes:[]).map(cleanTape).filter(t=>t&&t.id).slice(0,TAPE_MAX);
@@ -117,9 +118,9 @@ function keepDraft(){if(BC)return;S.draft=draft?Object.assign({},draft):null;sav
 function tapeOf(id){if(typeof id!=='string'||!id.startsWith('tape:'))return null;return id==='tape:draft'?draft:S.tapes.find(t=>'tape:'+t.id===id)||null;}
 function levelOf(id){if(GEN_LEVEL[id]!=null)return GEN_LEVEL[id];const tp=tapeOf(id);return tp?TAPE_LEVEL:.8;}
 function freqOf(id){if(FREQ[id])return FREQ[id];const tp=tapeOf(id);return tp?(tp.f/10).toFixed(1):'88.3';} /* every tape keeps its own spot on the dial, chosen when it's made */
-function encodeTape(t){const j=JSON.stringify([t.i?7:6,t.n,t.c,t.d,t.b,t.k,t.w,t.p,t.f,t.s,t.r]);return btoa(unescape(encodeURIComponent(j))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function encodeTape(t,by){const a=[t.i?7:6,t.n,t.c,t.d,t.b,t.k,t.w,t.p,t.f,t.s,t.r];if(cleanBy(by))a.push(cleanBy(by));const j=JSON.stringify(a); /* an optional 12th field: who made it */return btoa(unescape(encodeURIComponent(j))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function decodeTape(s){try{const a=JSON.parse(decodeURIComponent(escape(atob(String(s).replace(/-/g,'+').replace(/_/g,'/')))));if(!Array.isArray(a))return null;
-  if(a[0]===7||a[0]===6)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],s:a[9],r:a[10],e:5,i:a[0]===7?1:0}); /* 7: the same fields, with independent layers */
+  if(a[0]===7||a[0]===6)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],s:a[9],r:a[10],by:a[11],e:5,i:a[0]===7?1:0}); /* 7: the same fields, with independent layers */
   if(a[0]===5)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],s:a[9],e:5});
   if(a[0]===4)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],e:4});
   if(a[0]===3)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8]});
@@ -142,7 +143,9 @@ const FREQ={'gen:nine':'87.9','gen:late':'88.3','gen:crt':'94.1','gen:purr':'89.
 if(BC){BC.tz=BCQ.get('tz')||(BC.mode==='live'?'America/Los_Angeles':'');try{if(BC.tz)new Intl.DateTimeFormat('en-US',{timeZone:BC.tz});}catch(e){BC.tz='America/Los_Angeles';}
   BC.by=(BCQ.get('by')||'').replace(/[^\w &'.,!?\/-]/g,'').trim().slice(0,28).toUpperCase(); /* the credit's artist line for a listener's tape */
   BC.list=(BCQ.get('stations')||'').split(',').map(k=>ST_KEYS[k.trim()]).filter(Boolean);BC.rotate=Math.max(0,+BCQ.get('rotate')||0);
-  let first=ST_KEYS[BCQ.get('station')]||BC.list[0]||'gen:nine';if(BCQ.get('tape')){const tp=decodeTape(BCQ.get('tape'));if(tp){draft=tp;first='tape:draft';}}S.station=first;if(BCQ.get('palette'))S.palette=BCQ.get('palette');if(BCQ.get('coat'))S.coat=BCQ.get('coat');
+  let first=ST_KEYS[BCQ.get('station')]||BC.list[0]||'gen:nine';
+  {const cs=(BCQ.get('tapes')||'').split(',').map(c=>c.trim()).filter(Boolean).slice(0,60).map(decodeTape).filter(Boolean); /* community tapes: listeners' links, taking turns with the stations */
+    if(cs.length){cs.forEach((tp,i)=>tp.id='c'+i);S.tapes=cs;const st=BC.list.length?BC.list:[first],L=[];for(let i=0;i<Math.max(st.length,cs.length);i++){L.push(st[i%st.length]);L.push('tape:c'+(i%cs.length));}BC.list=L;if(!BC.rotate)BC.rotate=15;}}if(BCQ.get('tape')){const tp=decodeTape(BCQ.get('tape'));if(tp){draft=tp;first='tape:draft';}}S.station=first;if(BCQ.get('palette'))S.palette=BCQ.get('palette');if(BCQ.get('coat'))S.coat=BCQ.get('coat');
   if(BCQ.get('vol'))S.volume=Math.max(0,Math.min(1,+BCQ.get('vol')));BC.treats=BCQ.get('treats')!=='0';
   document.documentElement.classList.add('broadcast');document.documentElement.dataset.theme='dark';}
 /* the time in the broadcast's time zone, as a Date whose local fields read in that zone (worked out once a second) */
@@ -624,7 +627,8 @@ function stationName(){try{const tp=tapeOf(S.station);if(tp)return shownTape(tp)
 /* the five numbers that matter (see the README): who presses play, pets her, opens the deck, saves a tape, shares one.
    Only counted when analytics.js is switched on, never in broadcast mode; play, pet and open count once per visit. */
 const TRACKED=new Set();function track(ev,p,every){if(BC||(!every&&TRACKED.has(ev)))return;TRACKED.add(ev);try{if(window.gtag)window.gtag('event',ev,p||{});}catch(e){}}
-function playRadio(){genStart(S.station);track('play_radio',{station:stationName()});}
+let firstTap=true;
+function playRadio(){firstTap=false;genStart(S.station);track('play_radio',{station:stationName()});}
 function stopRadio(){genStop();dirty=true;paintKeys();}
 const peaks=new Float32Array(16),peakT=new Float32Array(16),bandMax=new Float32Array(16).fill(.2),bandLo=new Float32Array(16);let EDGES=null,vuT=-1;
 /* the groove, read off the sound itself (so it works for every station and tape): a kick is a jump in the low bands,
@@ -654,17 +658,22 @@ let boardTextLast='';function boardText(now){const el=document.getElementById('b
    lines dropping in one after another, for about five seconds; then back to the clock. Not for the calm sounds, not while
    you're mixing (every tap would re-show it), and not on a re-cut of the same tape. In broadcast mode it comes back every
    eight minutes, so someone who joins a long video halfway still sees what's on. */
-const ALBUM={'gen:nine':'BETWEEN LEVELS','gen:late':'AFTER HOURS','gen:crt':'UP ON THE ROOF'};let credit=null;
-function creditLines(id){const tp=tapeOf(id);
-  if(tp)return [BC&&BC.by?BC.by:'A CATNIP FM LISTENER',shownTape(tp).n,tapeRecipe(tp).toUpperCase(),'CATNIP FM RECORDS'];
-  const st=MUSIC.find(m=>m.id===id);return st?['LOAFIE',st.name,ALBUM[id]||'CATNIP FM','CATNIP FM RECORDS']:null;}
-function showCredit(id){if(CALM.some(c=>c.id===id)||document.querySelector('.mixtape.building'))return;const lines=creditLines(id);if(!lines)return;
-  const d=(tuning?tuning.dur:0)+400,n=performance.now();credit={id,lines,from:n+d,until:n+d+5200};dirty=true;}
-function drawCredit(P,el){const L=credit.lines,x=3,fit=(s,f)=>{while(s.length>1&&textW(s,f)>W-5)s=s.slice(0,-1);return s;},on=k=>el>k*160;
-  if(on(0))text(fit(L[0],'small'),x,2,'small',P.S2);
-  if(on(1)){const tt='"'+L[1]+'"';if(textW(tt,'big')<=W-5)text(tt,x,9,'big',P.C);else text(fit(tt.toUpperCase(),'small'),x,11,'small',P.C);}
-  if(on(2))text(fit(L[2],'small'),x,19,'small',dim(P.C,.62));
-  if(on(3))text(fit(L[3],'small'),x,26,'small',P.A);}
+const ALBUM={'gen:nine':'BETWEEN LEVELS','gen:late':'AFTER HOURS','gen:crt':'UP ON THE ROOF'};let credit=null;const CREDIT_PAGE=3.6;
+/* a page is a list of [text, look]: 'q' big in quotes, 'big', 'lab' label colour, 'dim', 'acc' accent */
+function creditPages(id){const tp=tapeOf(id);
+  if(tp){const by=((BC&&BC.by)||tp.by||(!BC&&tp!==draft&&S.by)||'Loafie').toUpperCase(),t=shownTape(tp);
+    const pg=[[[t.n,'big'],[(t.f/10).toFixed(1)+' FM','lab'],[tapeRecipe(t).toUpperCase(),'dim'],['MIXED BY '+by,'acc']]];
+    if(BC)pg.push([['MAKE YOURS AT','lab'],['catnipfm.com','big']]); /* on the stream: where to make one */
+    return pg;}
+  const st=MUSIC.find(m=>m.id===id);return st?[[['LOAFIE','lab'],[st.name,'q'],[ALBUM[id]||'CATNIP FM','dim'],['CATNIP FM RECORDS','acc']]]:null;}
+function showCredit(id){if(CALM.some(c=>c.id===id)||document.querySelector('.mixtape.building'))return;const pages=creditPages(id);if(!pages)return;
+  const d=(tuning?tuning.dur:0)+400,n=performance.now();credit={id,pages,from:n+d,until:n+d+pages.length*CREDIT_PAGE*1000};dirty=true;}
+function drawCredit(P,el){const pi=Math.min(credit.pages.length-1,Math.floor(el/(CREDIT_PAGE*1000))),L=credit.pages[pi],e=el-pi*CREDIT_PAGE*1000,x=3;
+  const fit=(s,f)=>{while(s.length>1&&textW(s,f)>W-5)s=s.slice(0,-1);return s;};let y=2;
+  L.forEach(([tx,look],k)=>{const show=e>k*140;let big=look==='big'||look==='q';const t=look==='q'?'"'+tx+'"':tx;
+    if(big&&textW(t,'big')>W-5)big=false; /* too long for the big letters: small capitals */
+    const col=look==='lab'?P.S2:look==='dim'?dim(P.C,.62):look==='acc'?P.A:P.C;
+    if(show)text(big?t:fit(t.toUpperCase(),'small'),x,big?y:y+(look==='q'||look==='big'?2:0),big?'big':'small',col);y+=big?10:7;});}
 /* ===== the weekend late show =====
    Friday and Saturday nights from 11 until 4, the skyline gets neon outlines (traced in, left to right, with a light
    running along them) and the STEREO lamp reads LATE NIGHT VIDEO. ?late=1 turns it on any time (for recordings). */
@@ -927,6 +936,7 @@ mt.innerHTML=`<header class="mt-head"><span class="mt-print mt-where"></span><bu
 <p class="mt-title"></p><p class="mt-freq"></p><p class="mt-recipe"></p>
 <div class="mt-renamebox" hidden><input type="text" class="mt-name" maxlength="24" autocomplete="off" spellcheck="false" aria-label="Tape name"><button type="button" class="hw mt-renamedone">OK</button></div>
 <div class="mt-acts"><button class="hw mt-play" type="button">PLAY</button><button class="hw mt-make" type="button">MAKE A MIXTAPE</button><button class="hw mt-savedraft" type="button">SAVE TAPE</button><button class="hw mt-keepmixing" type="button">KEEP MIXING</button><button class="hw mt-share" type="button">SHARE</button><button class="hw mt-rename" type="button">RENAME</button><button class="hw mt-edit" type="button">REMIX</button><button class="hw mt-keep" type="button">KEEP THIS TAPE</button></div>
+<label class="mt-from" hidden><span class="mt-print">FROM (OPTIONAL)</span><input type="text" class="mt-fromname" maxlength="24" autocomplete="off" spellcheck="false" placeholder="u/yourname" aria-label="Your name on the tapes you share (optional)"></label>
 <p class="mt-hint"></p><p class="mt-note2" aria-live="polite"></p>
 <p class="mt-links"><button type="button" class="mt-lk mt-again">Make your own</button><button type="button" class="mt-lk mt-card">Save as picture</button><button type="button" class="mt-lk mt-del">Delete tape</button></p></div></div>
 <div class="mt-build" hidden>
@@ -967,7 +977,8 @@ function paintMixtape(){if(BC)return;const build=mtView==='build'&&!!mtTape;mt.c
       mtQ(`.mt-hwrow[data-l="${R.k}"] .mt-keys`).innerHTML=opts.map(([v,lab])=>`<button type="button" class="hw" data-l="${R.k}" data-v="${v}" aria-pressed="${tp[R.k]===v}">${lab.toUpperCase()}</button>`).join('');}
     mtQ('.mt-save').textContent=saved?'DONE':'SAVE TAPE';mtQ('.mt-led').classList.toggle('on',onAir(mtId()));return;}
   const it=nowItem(),on=onAir(it.id),k=it.kind,show=(c,v)=>{mtQ(c).hidden=!v;};
-  mtQ('.mt-where').textContent=(on?'NOW PLAYING':'READY')+(k==='saved'?' · YOUR TAPE':k==='friend'?' · FROM A FRIEND':k==='draft'?' · NOT SAVED':'');
+  const raw=tapeOf(S.station),from=raw&&raw.by;mtQ('.mt-where').textContent=(on?'NOW PLAYING':'READY')+(k==='saved'?(from?' · MIXED BY '+from.toUpperCase():' · YOUR TAPE'):k==='friend'?' · MIXED BY '+(from?from.toUpperCase():'LOAFIE'):k==='draft'?' · NOT SAVED':'');
+  {const fr=mtQ('.mt-from');fr.hidden=!(k==='saved'&&!from);const fi=mtQ('.mt-fromname');if(document.activeElement!==fi)fi.value=S.by||'';}
   const big=mtQ('.mt-big');big.innerHTML=cassetteSVG(it.tape,mtPhase);const cyc=k==='saved'||k==='draft';big.classList.toggle('cycles',cyc);
   if(cyc){big.setAttribute('aria-label','Tap for another cassette');big.title='Tap for another cassette';}else{big.removeAttribute('aria-label');big.removeAttribute('title');}
   mtQ('.mt-title').textContent=it.tape.n;mtQ('.mt-freq').textContent=(it.tape.f/10).toFixed(1)+' FM';mtQ('.mt-recipe').textContent=k==='station'?it.desc:tapeRecipe(it.tape);
@@ -1037,6 +1048,7 @@ mtQ('.mt-savedraft').addEventListener('click',()=>{mtTape=draft;saveDraft();});
 mtQ('.mt-keepmixing').addEventListener('click',()=>{mtTape=draft;mtShow('build');seqStart();});
 mtQ('.mt-make').addEventListener('click',openMixtape);
 mtQ('.mt-keep').addEventListener('click',()=>{mtTape=draft;keepTape();});
+mtQ('.mt-fromname').addEventListener('input',e=>{S.by=cleanBy(e.target.value);save();mtQ('.mt-note2').textContent='';}); /* your name rides along on the tapes you share, and shows as the artist when they play */
 mtQ('.mt-rename').addEventListener('click',()=>{renaming=!renaming;paintMixtape();if(renaming){const i=mtQ('.mt-name');i.focus();i.select();}});
 mtQ('.mt-name').addEventListener('input',e=>{if(!mtTape)return;mtTape.n=e.target.value.replace(/[\u0000-\u001f<>]/g,'').slice(0,24)||'Untitled mixtape';mtQ('.mt-title').textContent=mtTape.n;mtQ('.mt-big').innerHTML=cassetteSVG(mtTape,mtPhase);clearTimeout(e.target._t);e.target._t=setTimeout(()=>mtApply(false),250);}); /* just the name: the music stays exactly as it is */
 mtQ('.mt-name').addEventListener('keydown',e=>{if(e.key==='Enter')mtQ('.mt-renamedone').click();});
@@ -1055,7 +1067,7 @@ async function copyTapeLink(b,label){if(!mtTape)return;track('mixtape_share',{},
   box.addEventListener('focus',()=>box.select());n.append(ok?'Copied. Paste it anywhere: whoever opens it hears your tape.':'Select the link and copy it:',box);if(!ok)box.focus();setTimeout(()=>b.textContent=label,2200);} /* the link always shows too, so you can see and select it */
 /* the share card: the tape, its spot on the dial, the board and Loafie, as a PNG to post or send.
    Link previews can't show a mixtape (crawlers don't run the page), so a picture does that job. */
-const tapeURL=tp=>location.origin+location.pathname.replace(/[^/]*$/,'')+'?tape='+encodeTape(tp);
+const tapeURL=tp=>location.origin+location.pathname.replace(/[^/]*$/,'')+'?tape='+encodeTape(tp,tp.by||S.by); /* a kept tape keeps its maker's name; your own carry yours, if you gave one */
 async function tapeCard(tp,opt){opt=opt||{};try{await Promise.all(['900 40px Doto','700 40px Doto','500 24px "IBM Plex Sans"'].map(f=>document.fonts.load(f)));}catch(e){}
   const W0=1200,H0=630,c=document.createElement('canvas');c.width=W0;c.height=H0;const g=c.getContext('2d'),lab=(SHELLS[tp.c]||SHELLS[0]).acc;
   g.fillStyle='#0b0b0e';g.fillRect(0,0,W0,H0);g.fillStyle='rgba(255,255,255,.035)';for(let y=15;y<H0;y+=22)for(let x=15;x<W0;x+=22)g.fillRect(x-1,y-1,2,2);
@@ -1126,6 +1138,9 @@ function autoPalette(base){if(BC||S.palettePicked)return;const id=TRACK_PALETTE[
 const dispKey=$('dispKey');
 dispKey.addEventListener('click',()=>{const i=SHOWN_PALETTES.indexOf(S.palette);S.palette=SHOWN_PALETTES[(i+1)%SHOWN_PALETTES.length];S.palettePicked=1;save();paintKeys();layout();dirty=true;}); /* no name flash: the station info stays put */
 const playKey=$('playKey');
+/* the first tap anywhere on the board or the case turns the radio on, so nobody has to find the play key first.
+   Only once: after that, tapping the board is for Loafie, and stopping the music stays stopped. */
+unit.addEventListener('click',e=>{if(!firstTap||BC)return;if(e.target.closest('button,input,select,a,label,.mixtape,.floatnote'))return;firstTap=false;if(!gen)playRadio();else if(actx&&actx.state!=='running')actx.resume().then(paintKeys,()=>{});});
 playKey.addEventListener('click',()=>{if(gen&&actx&&actx.state!=='running'){actx.resume().then(paintKeys,()=>{});return;} /* queued but the browser held it: this tap starts it */
   if(gen){stopRadio();return;}playRadio();
   if(!cat.inBox&&!cat.eat&&!cat.purr&&!cat.goBox&&(cat.state==='sit'||cat.state==='act'))act((performance.now()-t0)/1000,'loaf');}); /* press play and she settles into a loaf */
@@ -1168,7 +1183,9 @@ let purrNode=null;
 const ACT_WORDS={loaf:'loafing',groom:'grooming',yawn:'yawning',glance:'looking around',stretch:'stretching'};
 function catWords(){if(cat.inBox)return cat.state==='sleep'?'asleep in her box':cat.purr?'purring in her box':'in her box';if(cat.state==='hop')return 'hop!';if(cat.state==='sleep'&&cat.away)return 'dozing till you get back';if(cat.state==='act'&&ACT_WORDS[cat.act])return ACT_WORDS[cat.act];if(cat.state==='eat')return 'eating a fish';if(cat.state==='fed')return 'happy and full';if(cat.purr)return 'purring';if(cat.state==='sleep')return 'asleep';if(cat.state==='walk')return 'wandering';
   return {rain:'watching the rain',snow:'watching the snow',leaves:'watching leaves fall',petals:'watching petals',fireflies:'watching fireflies'}[skyNow]||(cat.aloof?'pretending not to hear you':isNight(NOW())?'stargazing':'on the ledge');}
-function pick(t,now){const night=nightDim(now)<.7;let r=Math.random();const gk=grooveKind();if(gk==='ambient'&&r<.5)r=.52+r*.2;else if(gk==='chip'&&r>.9)r=.3+(r-.9)*2; /* ambient: more loafing, less wandering; 8-bit: she stays up and about */
+function pick(t,now){const night=nightDim(now)<.7;
+  if(mug.on&&!mug.fall&&!cat.inBox&&(KNOCK_SOON&&t>3||(t>90&&Math.random()<1/160))){KNOCK_SOON=false;cat.state='walk';cat.target=clamp(mug.x-13,DESK_MIN,W-14);cat.knockGo=true;return;} /* rare: off the roof it goes */
+  let r=Math.random();const gk=grooveKind();if(gk==='ambient'&&r<.5)r=.52+r*.2;else if(gk==='chip'&&r>.9)r=.3+(r-.9)*2; /* ambient: more loafing, less wandering; 8-bit: she stays up and about */
   if(night&&r<.6){cat.state='sleep';cat.until=t+15+Math.random()*25;return;}
   if(r<(RM.matches?.1:.25)){cat.state='walk';cat.target=DESK_MIN+Math.random()*(W-14-DESK_MIN);return;}
   if(r<.52){cat.state='sit';cat.until=t+5+Math.random()*8;cat.aloof=Math.random()<.2;return;}
@@ -1184,6 +1201,11 @@ function pick(t,now){const night=nightDim(now)<.7;let r=Math.random();const gk=g
   cat.state='sleep';cat.until=t+10+Math.random()*15;}
 /* her cardboard box, at the left end of the desk: tan whatever the palette, flaps open */
 const BOX_X=2,BOX_IN=BOX_X+3,BOX_OUT=BOX_X+21,DESK_MIN=BOX_OUT;
+/* a mug someone left on the ledge. Once in a long while Loafie walks over, stares at it, pats it twice, and pushes it
+   off the roof. Then she looks at you. No counter, no explanation. It's back later, when she's not looking.
+   ?knock=1 makes her do it a few seconds after the page loads (for recording). */
+const MUG=['#####.','#rr#.#','#rr#.#','#####.'],MUGC={'#':0xd8d0c0,r:0xe8392b},MUG_TIP=['.####','#rr##','#rr#.','####.'];
+const mug={x:W-30,on:true,n:0,fall:null,back:0};
 /* her entrance, once per browser session: peeking over the box straight away, then a hop out at about 1.15 s and a
    little walk to the keyboard. Reduced motion skips it (she's just sitting there). Touching the desk finishes it. */
 let entering=false,blink12=0; /* blink12: a fresh session opens with the clock blinking 12:00, like every VCR nobody set */
@@ -1213,9 +1235,13 @@ function catStep(t,dt,now){
   if(cat.inBox&&cat.state==='walk'){cat.next=cat.target;hop(t,false);return;} /* hop out first */
   if(cat.state==='box'){if(t>cat.until)hop(t,false);return;}
   if(cat.state==='act'){if(t>cat.until){if(cat.queue&&cat.queue.length){act(t,...cat.queue);}else if(cat.comeOver){cat.comeOver=false;cat.state='walk';cat.target=clamp(W/2-7+(Math.random()-.5)*16,DESK_MIN,W-14);}else{cat.state='sit';cat.until=t+3+Math.random()*4;}}return;}
-  if(cat.state==='walk'){const d=cat.target-cat.x;const step=(cat.zoom?42:12)*dt;if(Math.abs(d)<=step){cat.x=cat.target;if(cat.eat){cat.state='eat';cat.until=t+EAT_S;cat.ht=.3;cat.dir=cat.eat.x+2>cat.x+7?1:-1;munch();purrStart();}else if(cat.goBox){cat.goBox=false;hop(t,true);}else if(cat.zoom&&cat.zoom.length){cat.target=cat.zoom.shift();if(!cat.zoom.length)cat.zoom=null;}else{cat.zoom=null;cat.state='sit';cat.until=t+4+Math.random()*6;}}else{cat.dir=Math.sign(d);cat.x+=cat.dir*step;}return;}
+  if(cat.state==='walk'){const d=cat.target-cat.x;const step=(cat.zoom?42:12)*dt;if(Math.abs(d)<=step){cat.x=cat.target;if(cat.eat){cat.state='eat';cat.until=t+EAT_S;cat.ht=.3;cat.dir=cat.eat.x+2>cat.x+7?1:-1;munch();purrStart();}else if(cat.goBox){cat.goBox=false;hop(t,true);}else if(cat.knockGo){cat.knockGo=false;cat.dir=1;cat.state='knock';cat.kt=t;mug.n=0;}else if(cat.zoom&&cat.zoom.length){cat.target=cat.zoom.shift();if(!cat.zoom.length)cat.zoom=null;}else{cat.zoom=null;cat.state='sit';cat.until=t+4+Math.random()*6;}}else{cat.dir=Math.sign(d);cat.x+=cat.dir*step;}return;}
   if(cat.state==='eat'||cat.state==='fed'){cat.ht-=dt;if(cat.ht<=0){cat.hearts.push({x:cat.x+(Math.random()<.5?-2:12),y:2,a:1,dx:(Math.random()-.5)*2});cat.ht=cat.state==='eat'?.55:.8;} /* purring and hearts while she eats, and a little after */
     if(t>cat.until){if(cat.state==='eat'){treats=treats.filter(x=>x!==cat.eat);cat.eat=null;cat.state='fed';cat.until=t+3;}else{purrStop();act(t,'blink');}}return;}
+  if(cat.state==='knock'){const k=t-cat.kt; /* stare, pat, pat, push */
+    if(k>2.9&&mug.n<1){mug.n=1;mug.x+=1;}if(k>3.9&&mug.n<2){mug.n=2;mug.x+=1;}
+    if(k>5.3&&mug.n<3){mug.n=3;mug.fall={x:mug.x,y:0,vx:5,vy:-6,t};}
+    if(k>7.4){cat.state='act';act(t,'blink');}return;}
   if(t>cat.until){if(cat.state==='sleep'&&!cat.away)return act(t,'yawn','stretch');pick(t,now);}}
 const flipped=new Map();
 function facing(sp){if(cat.dir>0)return sp;let f=flipped.get(sp);if(!f){f=sp.map(row=>{const a=row.split('').reverse();for(let i=1;i<a.length;i++)if(a[i]==='o'&&a[i-1]==='#'){a[i-1]='o';a[i]='#';}return a.join('');});flipped.set(sp,f);}return f;} /* mirrored, eyes one dot toward where she's going */
@@ -1231,7 +1257,7 @@ function blit(sp,x,y,c,eyesOpen=true,still=false){
    Night brings stars (no moon: nothing big hanging over the desk). The season comes from the date, flipped for the southern
    hemisphere when the device's time zone is there. Each day has its own weather, picked from the date, so it's the
    same all day and on every device. Try ?sky=rain, snow, leaves, petals or fireflies, and &night for the night sky. */
-const SKYQ=new URLSearchParams(location.search),SKY_FORCE=(SKYQ.get('sky')||'').toLowerCase(),LATE_FORCE=SKYQ.get('late')==='1',NIGHT_FORCE=SKYQ.has('night');
+const SKYQ=new URLSearchParams(location.search),SKY_FORCE=(SKYQ.get('sky')||'').toLowerCase(),LATE_FORCE=SKYQ.get('late')==='1',NIGHT_FORCE=SKYQ.has('night');let KNOCK_SOON=SKYQ.get('knock')==='1';
 const SOUTH=(()=>{try{return /^(Australia|Antarctica|Pacific\/(Auckland|Chatham|Fiji|Tongatapu|Apia|Noumea)|America\/(Sao_Paulo|Argentina|Buenos_Aires|Santiago|Montevideo|Asuncion|La_Paz|Lima|Punta_Arenas)|Africa\/(Johannesburg|Maputo|Harare|Windhoek|Gaborone|Lusaka|Maseru|Mbabane|Blantyre|Lubumbashi)|Indian\/(Mauritius|Reunion|Antananarivo))/.test(Intl.DateTimeFormat().resolvedOptions().timeZone||'');}catch(e){return false;}})();
 function season(d){let m=d.getMonth();if(SOUTH)m=(m+6)%12;return m===11||m<2?'winter':m<5?'spring':m<8?'summer':'autumn';}
 function dayRand(d){let h=d.getFullYear()*400+d.getMonth()*32+d.getDate();h=Math.imul(h^h>>>15,2246822507);h=Math.imul(h^h>>>13,3266489909);return ((h^h>>>16)>>>0)/4294967296;}
@@ -1277,6 +1303,12 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
   for(let x=0;x<W;x++){gfb[ground*W+x]=x%9===4?0x6a6a6e:0x7c7c80;gfb[(ground+1)*W+x]=0x48484c;gfb[(ground+2)*W+x]=0x333336;} /* the ledge she lives on: a plain grey concrete sill, lit along the top edge, the same in every palette */
   for(const tr of treats){if(tr.y<ground-3){tr.vy+=70*dt;tr.y=Math.min(ground-3,tr.y+tr.vy*dt);if(tr.y>=ground-3)plip();} /* the treat drops onto the desk */
     const bite=cat.state==='eat'&&cat.eat===tr?clamp((cat.until-t)/EAT_S,0,1):1;if(bite>0)blit(FISH,Math.round(tr.x),Math.round(tr.y),dim(P.FISH,.35+.65*bite),true,true);}
+  if(mug.on){const g0=ground-4;
+    if(mug.fall){const f=mug.fall;f.vy+=60*dt;f.y+=f.vy*dt;f.x+=f.vx*dt;const sp=f.y<1?MUG_TIP:MUG;
+      sp.forEach((row,j)=>{for(let i=0;i<row.length;i++){const ch=row[i],xx=Math.round(f.x)+i,yy=Math.round(g0+f.y)+j;if(ch!=='.'&&xx>=0&&xx<W&&yy>=0&&yy<GH)gfb[yy*W+xx]=MUGC[ch];}});
+      if(g0+f.y>GH){mug.on=false;mug.fall=null;mug.back=t+1200+Math.random()*1200;setTimeout(tink,900);}} /* gone over the edge; a faint tink from way down */
+    else MUG.forEach((row,j)=>{for(let i=0;i<row.length;i++){const ch=row[i];if(ch!=='.')gfb[(g0+j)*W+mug.x+i]=MUGC[ch];}});}
+  else if(t>mug.back&&Math.abs(cat.x+7-(W-27))>30){mug.on=true;mug.x=W-30;} /* someone left another one */
   const preCat=gfb.slice(); /* to outline her against the city */
   const on=playing();const cx=Math.round(cat.x);const gk=on?grooveKind():'none';
   /* she listens: on a kick she dips (bobs her head) if she's up; a hat flicks an ear now and then */
@@ -1286,8 +1318,10 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
   const gy=ground; /* her feet stay on the ledge; on a kick her head and body dip (see blit) */
   cat.nextBlink-=dt;if(cat.nextBlink<0){cat.blink=.15;cat.nextBlink=3+Math.random()*4;}cat.blink-=dt;
   const eyesOpen=!cat.purr&&cat.blink<=0;
-  if(cat.state==='hop'){const h=cat.hop,q=clamp((t-h.t0)/h.d,0,1);blit(KIT_STEP,cx,gy-12-Math.round(Math.sin(Math.PI*q)*3),P.C,true);}
-  else if(cat.state==='box'&&!cat.purr){const ph=(t-cat.t0)%7,duck=ph>3&&ph<5;blit(duck?KIT_DUCK:KIT,cx,gy-12+(duck?3:0),P.C,eyesOpen);} /* peeking over the edge, ducking down now and then */
+  if(cat.state==='knock'&&!cat.purr){const k=t-cat.kt,paw=[2.75,3.75,5.15].some(p=>k>p&&k<p+.3);blit(paw?KIT_STEP:k>5.6?KIT_LOOK:KIT,cx,gy-12,P.C,eyesOpen);}
+  else if(cat.state==='hop'){const h=cat.hop,q=clamp((t-h.t0)/h.d,0,1);blit(KIT_STEP,cx,gy-12-Math.round(Math.sin(Math.PI*q)*3),P.C,true);}
+  else if(cat.state==='box'&&!cat.purr){const ph=(t-cat.t0)%7,duck=ph>3&&ph<5,gp=(t-cat.t0)%11,glance=!duck&&gp>6.2&&gp<8.4&&hsh(Math.floor((t-cat.t0)/11)*3.7+1)<.7;
+    blit(duck?KIT_DUCK:glance?(cat.dir>0?KIT_LOOKR:KIT_LOOK):KIT,cx,gy-12+(duck?3:0),P.C,eyesOpen);} /* peeking over the edge, ducking down now and then, and now and then her eyes slide over to the right for a couple of seconds */
   else if(cat.state==='sleep'){blit(KIT_SLEEP,cx,gy-5,P.C);
     cat.zt+=dt;const ph=cat.zt%3.5;if(ph<2){const zx=cat.dir>0?cx+15:cx-5,zy=Math.round(9-ph*3);blit(ZEE,zx,zy,dim(P.S2,.6*(1-ph/2)+.2));}}
   else if(cat.purr&&t-(cat.petT||t)>1.2)blit(Math.floor(t*4)%2?KIT_KNEAD_A:KIT_KNEAD_B,cx,gy-12,P.C,true); /* petted for a while: she makes biscuits */
@@ -1342,6 +1376,7 @@ const COARSE=matchMedia('(pointer:coarse)');
 let treats=[];const EAT_S=2.4;
 function dropTreat(){if(treats.length>=4)return;let x=cat.dir>0?cat.x+22:cat.x-9;if(x<1||x>W-6)x=cat.dir>0?cat.x-9:cat.x+22;x=clamp(x+Math.round((Math.random()-.5)*6),BOX_OUT+12,W-6);
   for(const o of treats)if(Math.abs(o.x-x)<6)x=clamp(o.x+(x<o.x?-6:6),BOX_OUT+12,W-6);treats.push({x,y:-3,vy:0});dirty=true;}
+function tink(){if(muted)return;try{const a=ensureAudio();if(a.state!=='running')return;const t0=a.currentTime,o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.setValueAtTime(2300,t0);g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(.012,t0+.004);g.gain.exponentialRampToValueAtTime(.0003,t0+.35);o.connect(g).connect(a.destination);o.start(t0);o.stop(t0+.4);}catch(e){}} /* the mug, a long way down */
 function plip(){try{const a=ensureAudio(),t0=a.currentTime,o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.setValueAtTime(900,t0);o.frequency.exponentialRampToValueAtTime(420,t0+.08);
   g.gain.setValueAtTime(.035,t0);g.gain.exponentialRampToValueAtTime(.0001,t0+.12);o.connect(g).connect(a.destination);o.start(t0);o.stop(t0+.14);}catch(e){}} /* a tiny plip as it lands */
 function munch(){try{const a=ensureAudio(),t0=a.currentTime;for(let k=0;k<3;k++){const t=t0+.15+k*.42,s=a.createBufferSource(),n=a.sampleRate*.05,bf=a.createBuffer(1,n,a.sampleRate),d=bf.getChannelData(0);
@@ -1456,7 +1491,7 @@ if(BC){const st=[...CALM,...MUSIC].find(s=>s.id===S.station)||(draft&&S.station=
   const begin=()=>{if(!gen)genStart(S.station);if(actx&&actx.state!=='running'){const o=document.createElement('button');o.className='bcstart';o.textContent='Click to start the sound';
       o.addEventListener('click',()=>{actx.resume();o.remove();});document.body.appendChild(o);}};
   begin();
-  if(BC.rotate&&BC.list.length>1){let i=Math.max(0,BC.list.indexOf(S.station));setInterval(()=>{i=(i+1)%BC.list.length;const nx=[...CALM,...MUSIC].find(s=>s.id===BC.list[i]);
+  if(BC.rotate&&BC.list.length>1){let i=Math.max(0,BC.list.indexOf(S.station));setInterval(()=>{i=(i+1)%BC.list.length;const tpx=tapeOf(BC.list[i]),nx=tpx?{id:BC.list[i],name:tpx.n}:[...CALM,...MUSIC].find(s=>s.id===BC.list[i]);
       genStop(false);setTimeout(()=>{S.station=nx.id;S.stationName=nx.name;dirty=true;fillStations();genStart(S.station);},1200);},BC.rotate*60000);} /* a gentle fade between stations */
   setInterval(()=>{if(gen)showCredit(gen.id);},8*60000);
   if(BCQ.get('frame')==='vertical'){ /* 9:16 for Shorts and Reels: the board on top, the cassette that's playing under it, the address at the bottom */

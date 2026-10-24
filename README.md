@@ -16,9 +16,19 @@ Internals keep the old name on purpose: `STORE='loafFM'`, `loafFMStudio`, `sessi
 
 **Late show.** Friday and Saturday from 11 PM to 4 AM (board time, so a livestream uses its `tz`), the skyline's outline is traced in neon, pink for the far buildings and cyan for the near ones, with a light running along it, and the STEREO lamp reads LATE NIGHT VIDEO. `?late=1` forces it on, for recordings. (`lateShow()`, `cityEdge()`.) We don't use the name of the TBS show it nods to.
 
+## Made for Reddit
+
+**The first tap turns it on.** Until the radio has played once on this page, a tap anywhere on the board or the case (not on a key or the deck) starts it. After that, tapping the board is for Loafie, and stopping the music stays stopped (`firstTap`).
+
+**MIXED BY.** Under a saved tape there's an optional field, FROM (OPTIONAL), with u/yourname as the hint. No accounts, no profiles: it's just what somebody wrote on their cassette label, plain text, 24 characters (`cleanBy()`), never "verified". It's remembered (`S.by`) and rides along on every tape you share as a 12th field in the link (`[7,…,seed,by]`). Whoever opens it sees MIXED BY U/NAME on the deck. When a tape plays, the board's credit reads: the tape's name, its frequency, its parts, MIXED BY U/NAME, or MIXED BY LOAFIE when nobody put a name on it. A tape you keep from someone else keeps their name when you pass it on. Credits show for about 3.6 seconds a page (`CREDIT_PAGE`).
+
+**Community tapes on the stream.** Studio's *Community tapes* box takes listeners' links, one per line (`&tapes=code,code,…`, up to 60). They take turns with the station(s), a station then a tape, every N minutes (15 if unset). Each tape's credit says MIXED BY whoever made it, then a second page: MAKE YOURS AT catnipfm.com. That's the loop: Reddit → make a tape → drop the link in the comments → people play each other's tapes → good ones go on the stream → viewers make their own.
+
+**The mug.** There's a mug on the ledge. Once in a long while (about one in 160 of her idle choices, never in the first minute and a half) Loafie walks over, stares at it, pats it twice, pushes it off the roof, watches it go, then slow-blinks at you; a faint tink comes from far below. Another mug turns up 20 to 40 minutes later, when she's not near it. `?knock=1` makes her do it a few seconds after loading, for recording a Short.
+
 ## Launch kit
 
-**Studio** (`/studio.html`) has three quick starts: *Late Shift session* (16:9, Red LED, no evening dimming), *Late night video* (16:9, neon, Rooftop and Nine Lives taking turns every 30 minutes) and *A Short* (9:16, Nine Lives). 9:16 (`&frame=vertical`) puts the board on top, the cassette that's playing under it with its name and frequency, and catnipfm.com at the bottom; record it at 1080 × 1920. To feature a listener's tape, paste their link and fill in *Credit it to* (`&by=u/name`); the credit shows them as the artist. Turn evening dimming off (`dim=0`) for anything you record at night.
+**Studio** (`/studio.html`) has three quick starts: *Late Shift session* (16:9, Red LED, no evening dimming), *Late night video* (16:9, neon, Rooftop and Nine Lives taking turns every 30 minutes) and *A Short* (9:16, Nine Lives). 9:16 (`&frame=vertical`) puts the board on top, the cassette that's playing under it with its name and frequency, and catnipfm.com at the bottom; record it at 1080 × 1920. To feature one listener's tape, paste their link; their MIXED BY name comes with it (*Credit it to*, `&by=`, overrides it). For several, use *Community tapes*. Turn evening dimming off (`dim=0`) for anything you record at night.
 
 **What gets counted** (GA4 events from `track()` in board.js, never in broadcast mode): `play_radio` (with `station`), `pet_loafie`, `mixtape_open` (once per visit each), `mixtape_save`, `mixtape_share` (every time) and `tape_link_open` (someone arrived on a shared tape). Mark `mixtape_save` and `mixtape_share` as key events in GA4. The funnel that matters: visitors → play → pet → open the deck → save → share.
 
