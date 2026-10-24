@@ -17,7 +17,7 @@
  *   - Not loaded when the browser sends Do Not Track or Global Privacy Control, or on localhost.
  */
 (function () {
-  var GA_MEASUREMENT_ID = 'G-0Y62CW4XDM'; // empty this to switch analytics off
+  var GA_MEASUREMENT_ID = 'G-QY4M7NZD76'; // empty this to switch analytics off
 
   if (!GA_MEASUREMENT_ID) return;
   if (navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.globalPrivacyControl) return; // honour browser privacy signals

@@ -59,11 +59,11 @@
     <fieldset>
       <legend>Quick start</legend>
       <div class="btns">
+        <button class="btn tonal" type="button" data-preset="nine">Nine Lives late show</button>
         <button class="btn tonal" type="button" data-preset="lofi">Late Shift session</button>
-        <button class="btn tonal" type="button" data-preset="late">Late night video</button>
         <button class="btn tonal" type="button" data-preset="short">A Short</button>
       </div>
-      <p class="hint">Long YouTube videos (Red LED Late Shift, or neon Rooftop and Nine Lives taking turns), or a 9:16 Short of Nine Lives. Change anything after.</p>
+      <p class="hint">Long YouTube videos (neon Nine Lives, or Red LED Late Shift), or a 9:16 Short of Nine Lives. Change anything after.</p>
     </fieldset>
 
     <fieldset>
@@ -89,6 +89,12 @@
       <select name="station" id="station"></select>
       <label class="chk"><input type="checkbox" name="rotateOn" id="rotateOn">Change station every <input type="number" name="rotate" id="rotate" min="5" max="600" step="5" value="60"> minutes</label>
       <div class="grid2" id="rotList" hidden></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Outside</legend>
+      <select name="outside" id="outside"><option value="">Nothing</option><option value="rain">Rain</option><option value="purr">Purr</option><option value="fire">Fire</option><option value="ocean">Ocean</option></select>
+      <p class="hint">Plays under the station. Rain also rains on the board.</p>
     </fieldset>
 
     <fieldset>
@@ -171,23 +177,23 @@
     ['purr','Purr','89.9'],['rain','Rain','90.5'],['ocean','Ocean','93.3'],['fire','Fireplace','99.1'],['brown','Brown noise','100.7']];
   const ZONES=[['America/Los_Angeles','Pacific (PT)'],['America/Denver','Mountain (MT)'],['America/Chicago','Central (CT)'],['America/New_York','Eastern (ET)'],
     ['Europe/London','London'],['Europe/Berlin','Central Europe'],['Asia/Tokyo','Tokyo'],['Australia/Sydney','Sydney'],['UTC','UTC'],['custom','Other…']];
-  const KEY='catnipFMStudio';
+  const KEY='catnipFMStudio2';
   const $=id=>document.getElementById(id),f=$('f');
   const st=$('station'),og1=document.createElement('optgroup'),og2=document.createElement('optgroup');og1.label='Catnip FM';og2.label='Calm';
   STATIONS.forEach(([k,n,fq],i)=>{const o=new Option(n+'  ·  '+fq,k);(i<4?og1:og2).appendChild(o);
     const l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox" name="rot_'+k+'"'+(i<4?' checked':'')+'> '+n;$('rotList').appendChild(l);});
   st.append(og1,og2);
   ZONES.forEach(([v,n])=>$('tz').appendChild(new Option(n,v)));
-  const DEF={tape:'',mode:'video',station:'nine',rotateOn:false,rotate:60,palette:'pegs',coat:'grey',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,treats:true,dim:true,late:false,tapes:'',frame:'wide',by:'',base:new URL('./',location.href).href,rot:['nine','late','crt']};
+  const DEF={tape:'',mode:'video',station:'nine',rotateOn:false,rotate:60,palette:'pegs',coat:'grey',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,treats:true,dim:false,late:true,outside:'',tapes:'',frame:'wide',by:'',base:new URL('./',location.href).href,rot:['nine','late','crt']};
   let cfg=Object.assign({},DEF);try{Object.assign(cfg,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){}
 
   function toForm(){f.mode.value=cfg.mode;st.value=cfg.station;$('rotateOn').checked=cfg.rotateOn;$('rotate').value=cfg.rotate;$('palette').value=cfg.palette;$('coat').value=cfg.coat||'grey';
     $('tz').value=ZONES.some(z=>z[0]===cfg.tz)?cfg.tz:'custom';$('tzCustom').value=ZONES.some(z=>z[0]===cfg.tz)?cfg.tzCustom:cfg.tz;$('label').value=cfg.label;
-    $('vol').value=cfg.vol;$('treats').checked=cfg.treats;$('dim').checked=cfg.dim;$('late').checked=!!cfg.late;f.frame.value=cfg.frame||'wide';$('by').value=cfg.by||'';$('tapes').value=cfg.tapes||'';$('base').value=cfg.base;$('tape').value=cfg.tape||'';
+    $('vol').value=cfg.vol;$('treats').checked=cfg.treats;$('dim').checked=cfg.dim;$('late').checked=!!cfg.late;$('outside').value=cfg.outside||'';f.frame.value=cfg.frame||'wide';$('by').value=cfg.by||'';$('tapes').value=cfg.tapes||'';$('base').value=cfg.base;$('tape').value=cfg.tape||'';
     STATIONS.forEach(([k])=>{f['rot_'+k].checked=cfg.rot.includes(k);});}
   function fromForm(){cfg.mode=f.mode.value;cfg.station=st.value;cfg.rotateOn=$('rotateOn').checked;cfg.rotate=Math.max(5,+$('rotate').value||60);cfg.palette=$('palette').value;cfg.coat=$('coat').value;
     cfg.tz=$('tz').value==='custom'?$('tzCustom').value.trim():$('tz').value;cfg.tzCustom=$('tzCustom').value.trim();cfg.label=$('label').value.trim();
-    cfg.vol=+$('vol').value;cfg.treats=$('treats').checked;cfg.dim=$('dim').checked;cfg.late=$('late').checked;cfg.frame=f.frame.value;cfg.by=$('by').value.trim();cfg.tapes=$('tapes').value;cfg.base=$('base').value.trim()||DEF.base;cfg.tape=$('tape').value.trim();
+    cfg.vol=+$('vol').value;cfg.treats=$('treats').checked;cfg.dim=$('dim').checked;cfg.late=$('late').checked;cfg.outside=$('outside').value;cfg.frame=f.frame.value;cfg.by=$('by').value.trim();cfg.tapes=$('tapes').value;cfg.base=$('base').value.trim()||DEF.base;cfg.tape=$('tape').value.trim();
     cfg.rot=STATIONS.map(([k])=>k).filter(k=>f['rot_'+k].checked);try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}}
 
   function tapeCode(){const v=(cfg.tape||'').trim();if(!v)return '';const m=v.match(/[?&]tape=([A-Za-z0-9_-]+)/);const c=m?m[1]:(/^[A-Za-z0-9_-]+$/.test(v)?v:'');return c;}
@@ -198,7 +204,7 @@
     p.set('palette',cfg.palette);if(cfg.coat&&cfg.coat!=='grey')p.set('coat',cfg.coat);
     if(cfg.mode==='live'){if(cfg.tz)p.set('tz',cfg.tz);if(cfg.label)p.set('label',cfg.label);}
     p.set('vol',preview&&!$('pvSound').checked?'0':String(cfg.vol));
-    if(!cfg.treats)p.set('treats','0');if(!cfg.dim)p.set('dim','0');if(cfg.late)p.set('late','1');if(cfg.frame==='vertical')p.set('frame','vertical');if(tc&&cfg.by)p.set('by',cfg.by);
+    if(!cfg.treats)p.set('treats','0');if(!cfg.dim)p.set('dim','0');if(cfg.late)p.set('late','1');if(cfg.outside)p.set('outside',cfg.outside);if(cfg.frame==='vertical')p.set('frame','vertical');if(tc&&cfg.by)p.set('by',cfg.by);
     let base=cfg.base;try{base=new URL(base,location.href).href;}catch(e){base=DEF.base;}return base.replace(/[?#].*$/,'')+'?'+p.toString().replace(/%2C/g,',').replace(/%2F/g,'/');}
 
   let pvT,lastPv='';
@@ -213,7 +219,7 @@
     const b=$('copy'),t=b.textContent;b.textContent='Copied';setTimeout(()=>b.textContent=t,1400);});
   $('open').addEventListener('click',()=>window.open(address(false),'catnipBroadcast',cfg.frame==='vertical'?'width=540,height=960':'width=1920,height=1080'));
   const PRESETS={lofi:{mode:'video',frame:'wide',station:'late',rotateOn:false,palette:'red',late:false,dim:false,tape:''},
-    late:{mode:'video',frame:'wide',station:'crt',rotateOn:true,rotate:30,rot:['crt','nine'],palette:'pegs',late:true,dim:false,tape:''},
+    nine:{mode:'video',frame:'wide',station:'nine',rotateOn:false,palette:'pegs',late:true,dim:false,tape:''},
     short:{mode:'video',frame:'vertical',station:'nine',rotateOn:false,palette:'pegs',late:true,dim:false,tape:''}};
   document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{Object.assign(cfg,PRESETS[b.dataset.preset]);toForm();render();}));
   $('reset').addEventListener('click',()=>{cfg=Object.assign({},DEF);toForm();render();});

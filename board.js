@@ -145,6 +145,7 @@ const ST_KEYS={late:'gen:late',crt:'gen:crt',rooftop:'gen:crt',roof:'gen:crt',ni
 const FREQ={'gen:nine':'87.9','gen:late':'88.3','gen:crt':'94.1','gen:today':'91.3','gen:dead':'83.3','gen:purr':'89.9','gen:rain':'90.5','gen:waves':'93.3','gen:fire':'99.1','gen:brown':'100.7'};
 if(BC){BC.tz=BCQ.get('tz')||(BC.mode==='live'?'America/Los_Angeles':'');try{if(BC.tz)new Intl.DateTimeFormat('en-US',{timeZone:BC.tz});}catch(e){BC.tz='America/Los_Angeles';}
   BC.by=(BCQ.get('by')||'').replace(/[^\w &'.,!?\/-]/g,'').trim().slice(0,28).toUpperCase(); /* the credit's artist line for a listener's tape */
+  BC.outside={rain:'gen:rain',purr:'gen:purr',fire:'gen:fire',ocean:'gen:waves'}[BCQ.get('outside')]||''; /* studio: rain, purr, fire or ocean under whatever's playing */
   BC.list=(BCQ.get('stations')||'').split(',').map(k=>ST_KEYS[k.trim()]).filter(Boolean);BC.rotate=Math.max(0,+BCQ.get('rotate')||0);
   let first=ST_KEYS[BCQ.get('station')]||BC.list[0]||'gen:nine';
   {const cs=(BCQ.get('tapes')||'').split(',').map(c=>c.trim()).filter(Boolean).slice(0,60).map(decodeTape).filter(Boolean); /* community tapes: listeners' links, taking turns with the stations */
@@ -601,7 +602,8 @@ window.catnipBand=band;window.catnipSounds=SOUNDS; /* lets the tests render a ta
 
 function genStart(id,fade){const was=gen&&gen.id;genStop(true);const a=ensureAudio();const master=a.createGain();master.gain.value=0;const an=a.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.5;
   master.connect(an);an.connect(a.destination);const g={id,master,an,src:[],timers:[]};
-  const tpp=tapeOf(id);const snd=(SOUNDS[id]||((a,d)=>band(a,d,tpp)))(a,master);g.snd=snd;g.src.push(...snd.src);if(snd.tick){const ah=snd.ahead||8;snd.tick(a.currentTime+ah);g.timers.push(setInterval(()=>snd.tick(a.currentTime+ah),500));}
+  const tpp=tapeOf(id);const snd=(SOUNDS[id]||((a,d)=>band(a,d,tpp)))(a,master);g.snd=snd;g.src.push(...snd.src);
+  if(BC&&BC.outside&&BC.outside!==id&&!CALM.some(c=>c.id===id)&&!(tpp&&tpp.w)){const mix={'gen:rain':.5,'gen:waves':.45,'gen:fire':.35,'gen:purr':.2}[BC.outside],lg=a.createGain();lg.gain.value=mix*.63/levelOf(id);lg.connect(master);const l=SOUNDS[BC.outside](a,lg);g.src.push(...l.src);} /* broadcast outside layer, as loud as on a tape */if(snd.tick){const ah=snd.ahead||8;snd.tick(a.currentTime+ah);g.timers.push(setInterval(()=>snd.tick(a.currentTime+ah),500));}
   master.gain.setValueAtTime(0,a.currentTime);master.gain.linearRampToValueAtTime(vol()*levelOf(id),a.currentTime+(fade||2));gen=g;dirty=true;paintKeys();if(was!==id)showCredit(id);}
 function genStop(quick){if(!gen)return;const g=gen;gen=null;g.timers.forEach(clearInterval);try{const a=actx;g.master.gain.cancelScheduledValues(a.currentTime);g.master.gain.setValueAtTime(g.master.gain.value,a.currentTime);
     g.master.gain.linearRampToValueAtTime(0,a.currentTime+(quick?.15:.8));setTimeout(()=>{g.src.forEach(s=>{try{s.stop();}catch(e){}});g.master.disconnect();},quick?250:1000);}catch(e){}dirty=true;paintKeys();}
@@ -741,7 +743,7 @@ const CITY_H=50,CITY=new Uint8Array(W*CITY_H),CITY_WIN=new Int32Array(W*CITY_H).
   for(let x=106;x<113;x++)for(let y=19;y<24;y++)set(x,y,(y===19||x===106||x===112)?3:2);for(let y=17;y<19;y++)set(109,y,3);
   for(let wy=27;wy<44;wy+=4)for(let wx=101;wx<W-1;wx+=5){const id=wid++;for(let a=0;a<2;a++)for(let b=0;b<2;b++){set(wx+a,wy+b,6);CITY_WIN[(wy+b)*W+wx+a]=id;}}
   for(let wy=36;wy<44;wy+=4)for(let wx=3;wx<22;wx+=5){const id=wid++;for(let a=0;a<2;a++){set(wx+a,wy,6);CITY_WIN[wy*W+wx+a]=id;}}})();
-function raining(now){if(SKY_FORCE)return true;if(gen){const tp=tapeOf(gen.id);if(tp)return tp.w===1;return gen.id==='gen:rain';}return dayRand(now)<.18;} /* rain on the rain stations and rainy tapes; with nothing playing, about one day in six */
+function raining(now){if(SKY_FORCE)return true;if(BC&&BC.outside==='gen:rain')return true;if(gen){const tp=tapeOf(gen.id);if(tp)return tp.w===1;return gen.id==='gen:rain';}return dayRand(now)<.18;} /* rain on the rain stations and rainy tapes; with nothing playing, about one day in six */
 /* draw city rows y0..y1 (global) into a buffer starting at row `off` */
 function drawCity(buf,y0,y1,t,P,now){const night=isNight(now),frac=night?.5:.3,base=P.PEG?0xb8a68a:P.MID,far=dim(base,.24),near=dim(base,.4),edge=dim(base,.62),wf=dim(P.S2,.55),wn=dim(P.S2,.75),wd=dim(base,.3); /* on 808 the city is putty-grey, like the case; elsewhere it's the palette's own colour */
   for(let y=y0;y<y1;y++)for(let x=0;x<W;x++){const k=CITY[y*W+x];if(!k)continue;let c;
@@ -907,8 +909,8 @@ const mt=document.createElement('section');mt.className='mixtape';mt.id='mixtape
    (lit = playing, unlit = available, tap a lit one to take it out). SAVE TAPE names it and pops it back out. */
 const ROWS=[{k:'p',name:'Speed',opts:[[0,'Slow'],[1,'Easy'],[2,'Fast']],fixed:true},{k:'b',name:'Bass',opts:[[1,'Warm'],[2,'Deep'],[3,'Synth']]},{k:'k',name:'Keys',opts:[[1,'Rhodes'],[2,'Guitar'],[3,'Pad'],[4,'8-bit']]},{k:'w',name:'Outside',opts:[[1,'Rain'],[4,'Purr'],[3,'Fire']],extra:[[2,'Ocean']]}];
 /* each station has its own cassette and a line about it */
-const STATION_TAPE={'gen:late':[1,'Warm Rhodes and a lazy beat. Built for working late.'],'gen:crt':[8,'House drums, synth bass and a soft pad. The upbeat one.'],'gen:today':[12,'TODAY'],'gen:dead':[6,''],'gen:nine':[9,'8-bit, between levels. Blow on the cartridge first.'],
-  'gen:purr':[3,'Just Loafie, purring.'],'gen:rain':[2,'Rain on the window. Nothing else.'],'gen:waves':[2,'Slow waves on a quiet beach.'],'gen:fire':[4,'A low fire, crackling now and then.'],'gen:brown':[6,'Brown noise. Soft, steady, nothing to notice.']};
+const STATION_TAPE={'gen:late':[1,'Warm Rhodes and a lazy beat, for working late.'],'gen:crt':[8,'House drums, synth bass and a soft pad. The upbeat one.'],'gen:today':[12,'TODAY'],'gen:dead':[6,''],'gen:nine':[9,'8-bit, between levels. Blow on the cartridge first.'],
+  'gen:purr':[3,'Just Loafie, purring.'],'gen:rain':[2,'Rain on the window.'],'gen:waves':[2,'Slow waves on a quiet beach.'],'gen:fire':[4,'A low fire, crackling now and then.'],'gen:brown':[6,'Brown noise, like a fan in the next room.']};
 mt.innerHTML=`<header class="mt-head"><span class="mt-print mt-where"></span><span class="mt-print mt-legend" aria-hidden="true">RHYTHM COMPOSER</span><button class="icon mt-x" type="button" aria-label="Done mixing" title="Done mixing">✕</button></header>
 <div class="mt-now"><div class="mt-left"><button type="button" class="mt-big"></button></div><div class="mt-info">
 <p class="mt-title"></p><p class="mt-freq"></p><p class="mt-recipe"></p>
@@ -943,7 +945,7 @@ function shownTape(tp){return isAuto(tp)?Object.assign({},tp,{n:autoName(tp)}):t
 /* what the deck is showing right now: a station, your tape, a friend's tape, or your unsaved mix */
 function nowItem(){const tp=tapeOf(S.station);
   if(tp){mtTape=tp;const kind=tp===draft?(draftIn?'friend':'draft'):'saved';return {kind,tape:shownTape(tp),id:S.station};}
-  const st=[...MUSIC,...CALM,...HIDDEN].find(s=>s.id===S.station)||MUSIC[0];let [c,desc]=STATION_TAPE[st.id]||[1,''];if(st.id==='gen:today')desc=todayLabel()+'. Everyone gets this one today. Tomorrow it\'s something else.';
+  const st=[...MUSIC,...CALM,...HIDDEN].find(s=>s.id===S.station)||MUSIC[0];let [c,desc]=STATION_TAPE[st.id]||[1,''];if(st.id==='gen:today')desc=todayLabel()+'. Same tape for everyone today, a new one tomorrow.';
   return {kind:'station',tape:{n:st.name,c,f:Math.round(parseFloat(FREQ[st.id]||'88.3')*10)},desc,id:st.id};}
 const onAir=id=>!!gen&&gen.id===id&&playing();
 function paintMixtape(){if(BC)return;const build=mtView==='build'&&!!mtTape;mt.classList.toggle('building',build);document.documentElement.classList.toggle('mt-open',build);
@@ -1035,7 +1037,7 @@ mtQ('.mt-edit').addEventListener('click',()=>{const tp=tapeOf(S.station);if(tp==
   if(tp){mtTape=tp;if(!gen)playRadio();mtShow('build');seqStart();}});
 mtQ('.mt-new').addEventListener('click',()=>{track('mixtape_open');newDraft(seedFrom(S.station));mtShow('build');seqStart();}); /* NEW TAPE: this station's groove, nothing else carried over, a fresh tune */
 /* COPY REDDIT POST: plain text to paste under a thread: who and what, the parts, the frequency, the link */
-function redditPost(tp){const t=shownTape(tp),who=tp.by||S.by,lines=[(who?who+' — ':'')+t.n,tapeRecipe(t).toUpperCase().replace(/ BASS| KEYS/g,''),(t.f/10).toFixed(1)+' FM'];if(tp.from)lines.push('remixed from '+tp.from);lines.push(tapeURL(tp));return lines.join('\n');}
+function redditPost(tp){const t=shownTape(tp),who=tp.by||S.by,lines=[t.n+(who?' by '+who:''),tapeRecipe(t).toUpperCase().replace(/ BASS| KEYS/g,''),(t.f/10).toFixed(1)+' FM'];if(tp.from)lines.push('remixed from '+tp.from);lines.push(tapeURL(tp));return lines.join('\n');}
 mtQ('.mt-post').addEventListener('click',async e=>{if(!mtTape||!mtIsSaved())return;const b=e.currentTarget,txt=redditPost(mtTape);let ok=false;try{await navigator.clipboard.writeText(txt);ok=true;}catch(e2){}
   if(!ok){try{const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;opacity:0;top:0';document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove();}catch(e2){}}
   track('mixtape_share',{},true);b.textContent=ok?'COPIED':'COPY THE LINK INSTEAD';const n=mtQ('.mt-note2');n.textContent=ok?'Copied. Paste it in the comments.':'';setTimeout(()=>b.textContent='COPY REDDIT POST',2200);});
@@ -1048,7 +1050,7 @@ async function copyTapeLink(b,label){if(!mtTape)return;track('mixtape_share',{},
   try{await navigator.clipboard.writeText(url);ok=true;}catch(e){} /* the clipboard API, then the old way, so it works over plain http and in older browsers */
   if(!ok){try{const ta=document.createElement('textarea');ta.value=url;ta.style.cssText='position:fixed;opacity:0;top:0';document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove();}catch(e){}}
   b.textContent=ok?'LINK COPIED':'COPY THE LINK BELOW';const n=mtQ('.mt-note2');n.innerHTML='';const box=document.createElement('input');box.className='mt-link';box.readOnly=true;box.value=url;box.setAttribute('aria-label','Tape link');
-  box.addEventListener('focus',()=>box.select());n.append(ok?'Copied. Paste it anywhere: whoever opens it hears your tape.':'Select the link and copy it:',box);if(!ok)box.focus();setTimeout(()=>b.textContent=label,2200);} /* the link always shows too, so you can see and select it */
+  box.addEventListener('focus',()=>box.select());n.append(ok?'Copied. Whoever opens it hears your tape.':'Select the link and copy it:',box);if(!ok)box.focus();setTimeout(()=>b.textContent=label,2200);} /* the link always shows too, so you can see and select it */
 /* the share card: the tape, its spot on the dial, the board and Loafie, as a PNG to post or send.
    Link previews can't show a mixtape (crawlers don't run the page), so a picture does that job. */
 const tapeURL=tp=>location.origin+location.pathname.replace(/[^/]*$/,'')+'?tape='+encodeTape(tp,tp.by||S.by); /* a kept tape keeps its maker's name; your own carry yours, if you gave one */
@@ -1345,7 +1347,7 @@ let idleT;function wake(){noteActive();document.body.classList.remove('idle');cl
    Every control is still a normal button, so Tab and Enter work for keyboard users. */
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{});});}).catch(()=>{}); /* check for a new service worker on every visit and whenever the tab comes back */}
 paintKeys();paintGame();
-if(!BC)try{console.log('%cCATNIP FM  ·  MODEL CN-83','font:900 14px monospace;color:#f08a24');console.log('%cYou found the service hatch.\nNothing in here is a recording; it\'s all Web Audio, made while you listen.\nTry ?station=deadair','color:#bdb5a5');}catch(e){}
+if(!BC)try{console.log('%cCATNIP FM  ·  MODEL CN-83','font:900 14px monospace;color:#f08a24');console.log('%cYou found the service hatch.\nIt\'s all Web Audio, no audio files.\nTry ?station=deadair','color:#bdb5a5');}catch(e){}
 
 
 /* ================= Z: Loafie naps =================

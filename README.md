@@ -131,11 +131,11 @@ The page around the radio is a cassette J-card: the 80s stripes (`--s1 #ef2a0c`,
 
 `?broadcast=video` (no clock or date; the big digits show the frequency) or `?broadcast=live` (the real time on the small line, in one time zone) turns the page into just the board on a dark background, sound starting by itself where the browser allows it, Loafie never dozing off, a treat dropping now and then.
 
-Options: `station=nine|late|crt|today|deadair|purr|rain|ocean|fire|brown` (`rooftop` works too), `stations=nine,late,crt&rotate=30` (take turns every N minutes with a fade), `tape=…` (one mixtape), `tapes=code,code,…` (community tapes, up to 60, taking turns with the station(s); rotate defaults to 15), `by=u/name` (the MIXED BY line, overriding the tape's own), `palette=pegs|teal|red|amber|crt|moon|ember`, `coat=grey|orange|white|calico|siamese|black`, `tz=America/Los_Angeles` and `label=PT` (live), `vol=0.8`, `treats=0`, `dim=0` (no evening dimming), `late=1` (neon), `frame=vertical` (9:16: the board on top, the playing cassette with its name and frequency under it, catnipfm.com at the bottom; record at 1080 × 1920).
+Options: `station=nine|late|crt|today|deadair|purr|rain|ocean|fire|brown` (`rooftop` works too), `stations=nine,late,crt&rotate=30` (take turns every N minutes with a fade), `tape=…` (one mixtape), `tapes=code,code,…` (community tapes, up to 60, taking turns with the station(s); rotate defaults to 15), `by=u/name` (the MIXED BY line, overriding the tape's own), `palette=pegs|teal|red|amber|crt|moon|ember`, `coat=grey|orange|white|calico|siamese|black`, `tz=America/Los_Angeles` and `label=PT` (live), `vol=0.8`, `treats=0`, `dim=0` (no evening dimming), `late=1` (neon), `outside=rain|purr|fire|ocean` (a layer under any music station, as on a tape; rain also rains on the board; skipped on the calm stations and on tapes that have their own), `frame=vertical` (9:16: the board on top, the playing cassette with its name and frequency under it, catnipfm.com at the bottom; record at 1080 × 1920).
 
 Broadcast mode never touches your own saved settings.
 
-**Studio** (`/studio.html`) builds these addresses with a live preview and a copy key. Quick starts: *Late Shift session* (16:9, Red LED), *Late night video* (16:9, neon, Rooftop and Nine Lives taking turns every 30 minutes), *A Short* (9:16, Nine Lives). Paste one listener's link to feature a tape, or several into *Community tapes* for the stream. Studio keeps its settings under `localStorage` key `catnipFMStudio`.
+**Studio** (`/studio.html`) builds these addresses with a live preview and a copy key. It opens on Nine Lives with the neon late show and no dimming. Quick starts: *Nine Lives late show* (16:9, neon), *Late Shift session* (16:9, Red LED), *A Short* (9:16, Nine Lives); none of them touch *Outside*, so rain or a purr stays on when you switch. Paste one listener's link to feature a tape, or several into *Community tapes* for the stream. Studio keeps its settings under `localStorage` key `catnipFMStudio2`.
 
 ## Made for Reddit
 
@@ -145,7 +145,7 @@ The loop: make a tape → put your u/name in FROM → COPY REDDIT POST → peopl
 
 ## Analytics
 
-Google Analytics 4 is on, Measurement ID `G-0Y62CW4XDM` in `analytics.js`; the privacy page describes it. To switch it off, empty the ID and deploy. Advertising storage is always denied; in the EEA, the UK and Switzerland analytics storage is denied too (cookieless pings), and nothing loads under Do Not Track or Global Privacy Control, or on localhost. In the GA4 data stream, leave enhanced measurement's "page changes based on browser history events" on (that counts swapped pages), turn Google Signals off, and set data retention to the minimum you need.
+Google Analytics 4 is on, Measurement ID `G-QY4M7NZD76` in `analytics.js`; the privacy page describes it. To switch it off, empty the ID and deploy. Advertising storage is always denied; in the EEA, the UK and Switzerland analytics storage is denied too (cookieless pings), and nothing loads under Do Not Track or Global Privacy Control, or on localhost. In the GA4 data stream, leave enhanced measurement's "page changes based on browser history events" on (that counts swapped pages), turn Google Signals off, and set data retention to the minimum you need.
 
 ## Put it online
 
