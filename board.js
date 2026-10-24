@@ -1298,7 +1298,7 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
   for(const hh of cat.hearts){hh.y-=dt*4;hh.x+=hh.dx*dt;hh.a-=dt*.35;if(hh.a>0)blit(HEART,Math.round(hh.x),Math.round(hh.y),dim(P.A,Math.max(.25,hh.a)));}
   cat.hearts=cat.hearts.filter(hh=>hh.a>0&&hh.y>-4);}
 /* touch: tap her to pet (she purrs while you hold); tap the ledge and she mews and walks over */
-function ensureAudio(){if(!actx){actx=new (window.AudioContext||window.webkitAudioContext)();actx.addEventListener('statechange',()=>{dirty=true;if(typeof paintKeys==='function')paintKeys();});}if(actx.state==='suspended')actx.resume();return actx;}
+function ensureAudio(){if(!actx){try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){} /* iPhone: play like a music app, so the ring/silent switch doesn't mute the radio */actx=new (window.AudioContext||window.webkitAudioContext)();actx.addEventListener('statechange',()=>{dirty=true;if(typeof paintKeys==='function')paintKeys();});}if(actx.state==='suspended')actx.resume();return actx;}
 function purrStart(){if(purrNode)return;try{const a=ensureAudio();const o=a.createOscillator();o.type='sawtooth';o.frequency.value=27;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=140;
     const g=a.createGain();g.gain.value=0;const lfo=a.createOscillator();lfo.frequency.value=5.5;const lg=a.createGain();lg.gain.value=.045;lfo.connect(lg).connect(g.gain);
     o.connect(lp).connect(g).connect(a.destination);o.start();lfo.start();g.gain.linearRampToValueAtTime(.06,a.currentTime+.3);purrNode={o,lfo,g};}catch(e){}}
