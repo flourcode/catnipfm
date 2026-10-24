@@ -331,3 +331,11 @@ html.broadcast .mixtape{display:none!important}
 .coatbtn canvas{width:28px;height:18px;display:block;image-rendering:pixelated}
 html.broadcast .coatbtn{display:none}
 @media (max-width:700px){.coatbtn{height:40px}}
+/* broadcast, vertical (?frame=vertical): 9:16 for Shorts and Reels */
+html.broadcast.vertical .boardwrap{flex-direction:column;justify-content:center;gap:4vh}
+html.broadcast.vertical .bcv{display:flex;flex-direction:column;align-items:center;gap:1.6vh;width:100%}
+html.broadcast.vertical .bcv-cass{width:64vw}
+html.broadcast.vertical .bcv-cass svg{width:100%;height:auto;display:block;filter:drop-shadow(0 2vw 3vw rgba(0,0,0,.6))}
+html.broadcast.vertical .bcv-name{margin:1vh 0 0;font:900 5vw/1 var(--dots);letter-spacing:.3vw;color:#f4ecd8;text-transform:uppercase}
+html.broadcast.vertical .bcv-site{margin:0;font:900 3.4vw/1 var(--dots);letter-spacing:.4vw;color:#f6860b;opacity:.8}
+.bcv{display:none}

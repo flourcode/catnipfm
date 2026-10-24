@@ -10,6 +10,20 @@ The site lives at **catnipfm.com** (`CNAME`).
 
 Internals keep the old name on purpose: `STORE='loafFM'`, `loafFMStudio`, `sessionStorage.loafIn`, the service-worker cache name and station ids like `gen:crt`. Users never see them.
 
+## Video credits and the weekend late show
+
+**Credits.** When a FOCUS station or a tape starts, the clock side of the board shows a late-night-video-show credit for about five seconds, lines dropping in one by one: artist (LOAFIE for stations, A CATNIP FM LISTENER for tapes, or `&by=` in broadcast mode), "Title", album (`ALBUM`: Between Levels, After Hours, Up on the Roof; a tape shows its parts) and CATNIP FM RECORDS. Not for calm sounds, not while the deck is open, not when a tape re-cuts. In broadcast mode it comes back every eight minutes. (`showCredit()`, `drawCredit()`.)
+
+**Late show.** Friday and Saturday from 11 PM to 4 AM (board time, so a livestream uses its `tz`), the skyline's outline is traced in neon, pink for the far buildings and cyan for the near ones, with a light running along it, and the STEREO lamp reads LATE NIGHT VIDEO. `?late=1` forces it on, for recordings. (`lateShow()`, `cityEdge()`.) We don't use the name of the TBS show it nods to.
+
+## Launch kit
+
+**Studio** (`/studio.html`) has three quick starts: *Late Shift session* (16:9, Red LED, no evening dimming), *Late night video* (16:9, neon, Rooftop and Nine Lives taking turns every 30 minutes) and *A Short* (9:16, Nine Lives). 9:16 (`&frame=vertical`) puts the board on top, the cassette that's playing under it with its name and frequency, and catnipfm.com at the bottom; record it at 1080 × 1920. To feature a listener's tape, paste their link and fill in *Credit it to* (`&by=u/name`); the credit shows them as the artist. Turn evening dimming off (`dim=0`) for anything you record at night.
+
+**What gets counted** (GA4 events from `track()` in board.js, never in broadcast mode): `play_radio` (with `station`), `pet_loafie`, `mixtape_open` (once per visit each), `mixtape_save`, `mixtape_share` (every time) and `tape_link_open` (someone arrived on a shared tape). Mark `mixtape_save` and `mixtape_share` as key events in GA4. The funnel that matters: visitors → play → pet → open the deck → save → share.
+
+**Links.** Post the plain domain. Share links are just `?tape=…`, with no tracking added.
+
 ## The one rule: never break the flow
 
 Catnip FM is a joyful, casual toy. Nothing anyone does here should knock them out of the vibe. When adding or changing anything, check it against these:
